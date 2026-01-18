@@ -17,15 +17,18 @@ const PHRASES = [
     callsign: "Jazz 3230",
     atc: "Jazz 3230, taxi to runway zero eight left via Alpha, Charlie, hold short of runway zero eight right.",
     meaning: "Taxi via Alpha/Charlie to 08L and stop before crossing 08R.",
-    expectedReadback:
-      "Taxi to zero eight left via Alpha Charlie, hold short zero eight right, Jazz 3230.",
-    expectedReadback: "Taxi to zero eight left via Alpha Charlie, hold short zero eight right, Jazz 3230.lineup",
+    expectedReadback: "Taxi to zero eight left via Alpha Charlie, hold short zero eight right, Jazz 3230.",
+  },
+  {
+    id: "yvr-tower-lineup",
     callsign: "Harbour Air 59",
     atc: "Harbour Air 59, line up and wait runway zero eight left, landing traffic on zero eight right.",
     meaning: "Enter and hold on 08L while another aircraft lands on 08R.",
     expectedReadback: "Line up and wait zero eight left, Harbour Air 59.",
     sector: "Tower",
-  },expectedReadback: "Line up and wait zero eight left, Harbour Air 59.ach-descend",
+  },
+  {
+    id: "yvr-approach-descend",
     callsign: "Alaska 213",
     atc: "Alaska 213, descend to four thousand, reduce speed to two one zero knots.",
     meaning: "Descend to 4,000 ft and slow to 210 knots.",
@@ -33,50 +36,28 @@ const PHRASES = [
     sector: "Approach",
   },
   {
-    expectedReadback: "Down to four thousand, speed two one zero, Alaska 213., winds zero seven zero at eight, runway zero eight left cleared for takeoff.",
+    id: "yvr-tower-takeoff",
+    callsign: "Sunwing 602",
+    atc: "Sunwing 602, winds zero seven zero at eight, runway zero eight left cleared for takeoff.",
     meaning: "Takeoff clearance on 08L with wind 070/8.",
     expectedReadback: "Cleared for takeoff zero eight left, Sunwing 602.",
     sector: "Tower",
   },
-  {expectedReadback: "Cleared for takeoff zero eight left, Sunwing 602.ific Coastal 31",
+  {
+    id: "yvr-ground-pushback",
+    callsign: "Pacific Coastal 31",
     atc: "Pacific Coastal 31, pushback approved, expect taxi to runway two six left.",
     meaning: "Pushback allowed; anticipate taxiing to 26L.",
     expectedReadback: "Pushback approved, expect two six left, Pacific Coastal 31.",
     sector: "Ground",
   },
-  {expectedReadback: "Pushback approved, expect two six left, Pacific Coastal 31.er 114",
+  {
+    id: "yvr-approach-contact",
+    callsign: "Porter 114",
     atc: "Porter 114, contact tower one one niner decimal five, good day.",
     meaning: "Switch to tower frequency 119.5 MHz.",
     expectedReadback: "Over to tower on one one niner decimal five, Porter 114.",
     sector: "Approach",
-  },
-];
-
-consexpectedReadback: "Over to tower on one one niner decimal five, Porter 114.hree arrivals onto 08R, keep 170 knots to 4 DME.",
-    strip: {
-      callsign: "WSH407",
-      clearance: "Cleared ILS 08R, maintain 3,000 until established.",
-      meta: "Runway 08R • ILS • Speed 170",
-    },
-    phrase: "WestJet 407, reduce speed to one seven zero, maintain three thousand until established, cleared ILS runway zero eight right.",
-  },
-  {
-    task: "Coordinate a departure gap for 08L between two arrivals.",
-    strip: {
-      callsign: "ACA162",
-      clearance: "Cleared for takeoff 08L, fly runway heading, climb 5,000.",
-      meta: "Runway 08L • RWY HDG • Initial 5000",
-    },
-    phrase: "Air Canada 162, runway zero eight left cleared for takeoff, fly runway heading, maintain five thousand.",
-  },
-  {
-    task: "Hold a taxiing aircraft short of 08R crossing.",
-    strip: {
-      callsign: "JZA3230",
-      clearance: "Taxi to 08L via Alpha, hold short 08R.",
-      meta: "Taxi • Hold Short • 08R",
-    },
-    phrase: "Jazz 3230, taxi to runway zero eight left via Alpha, hold short of runway zero eight right.",
   },
 ];
 
@@ -102,6 +83,11 @@ const elements = {
   sessionMic: document.getElementById("session-mic"),
   sessionAtc: document.getElementById("session-atc"),
   micStatus: document.getElementById("mic-status"),
+  readbackText: document.getElementById("readback-text"),
+  readbackResult: document.getElementById("readback-result"),
+  sessionStart: document.getElementById("session-start"),
+  sessionCheck: document.getElementById("session-check"),
+  sessionClear: document.getElementById("session-clear"),
 };
 
 let score = 0;
@@ -283,23 +269,6 @@ const updateReadbackResult = () => {
   updateScore(grade.ok ? 1 : 0, !grade.ok);
 };
 
-const updateReadbackResult = () => {
-  const typed = elements.readbackText.value.trim();
-  if (!typed) {
-    elements.readbackResult.textContent = "Type a readback to check your accuracy.";
-    return;
-  }
-  const grade = gradeReadback(typed, currentReadback.expectedReadback);
-  elements.readbackResult.innerHTML = `
-    <strong>${grade.ok ? "Great readback!" : "Needs improvement."}</strong>
-    Score: ${grade.overall}%.
-    <div class="muted">Key tokens: ${grade.required.join(", ") || "—"}.</div>
-    <div class="muted">Numbers: ${grade.nums.join(", ") || "—"}.</div>
-    ${grade.ok ? "" : `<div class="muted">Ideal: ${currentReadback.expectedReadback}</div>`}
-  `;
-  updateScore(grade.ok ? 1 : 0, !grade.ok);
-};
-
 const buildSession = () => {
   sessionQueue = shuffle(PHRASES).slice(0, 5);
   currentSession = sessionQueue.shift();
@@ -392,53 +361,61 @@ const nextSessionStep = () => {
   renderSessionStep();
 };
 
-document.getElementById("session-start").addEventListener("click", buildSession);
-document.getElementById("session-check").addEventListener("click", scoreSessionReadback);
-document.getElementById("session-clear").addEventListener("click", () => {
-  if (elements.sessionText) {
-    elements.sessionText.value = "";
+document.addEventListener("DOMContentLoaded", () => {
+  if (elements.sessionStart) {
+    elements.sessionStart.addEventListener("click", buildSession);
   }
-  if (elements.micStatus) {
-    elements.micStatus.textContent = "Ready";
-    elements.micStatus.className = "mic-status ready";
+  if (elements.sessionCheck) {
+    elements.sessionCheck.addEventListener("click", scoreSessionReadback);
   }
+  if (elements.sessionClear) {
+    elements.sessionClear.addEventListener("click", () => {
+      if (elements.sessionText) {
+        elements.sessionText.value = "";
+      }
+      if (elements.micStatus) {
+        elements.micStatus.textContent = "Ready";
+        elements.micStatus.className = "mic-status ready";
+      }
+    });
+  }
+
+  if (elements.sessionMic) {
+    elements.sessionMic.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      if (recognition) {
+        recognition.start();
+      }
+    });
+
+    elements.sessionMic.addEventListener("mouseup", (e) => {
+      e.preventDefault();
+      if (recognition) {
+        recognition.stop();
+      }
+    });
+
+    elements.sessionMic.addEventListener("mouseleave", () => {
+      if (recognition && recognition.continuous === false) {
+        recognition.stop();
+      }
+    });
+
+    // Touch support for mobile
+    elements.sessionMic.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (recognition) {
+        recognition.start();
+      }
+    });
+
+    elements.sessionMic.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      if (recognition) {
+        recognition.stop();
+      }
+    });
+  }
+
+  initRecognition();
 });
-
-if (elements.sessionMic) {
-  elements.sessionMic.addEventListener("mousedown", (e) => {
-    e.preventDefault();
-    if (recognition) {
-      recognition.start();
-    }
-  });
-
-  elements.sessionMic.addEventListener("mouseup", (e) => {
-    e.preventDefault();
-    if (recognition) {
-      recognition.stop();
-    }
-  });
-
-  elements.sessionMic.addEventListener("mouseleave", () => {
-    if (recognition && recognition.continuous === false) {
-      recognition.stop();
-    }
-  });
-
-  // Touch support for mobile
-  elements.sessionMic.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    if (recognition) {
-      recognition.start();
-    }
-  });
-
-  elements.sessionMic.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    if (recognition) {
-      recognition.stop();
-    }
-  });
-}
-
-initRecognition();
