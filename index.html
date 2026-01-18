@@ -101,6 +101,7 @@
           <div class="trainer__tabs">
             <button class="tab tab--active" data-tab="match">Phrase Match</button>
             <button class="tab" data-tab="readback">Readback Practice</button>
+            <button class="tab" data-tab="session">Live Session</button>
             <button class="tab" data-tab="scenario">Scenario Builder</button>
           </div>
 
@@ -143,6 +144,40 @@
                 </div>
               </div>
               <div class="result" id="readback-result"></div>
+            </section>
+
+            <section class="card" id="session">
+              <div class="card__header">
+                <div>
+                  <p class="label">Controller Session</p>
+                  <h2 id="session-atc"></h2>
+                  <p class="muted">Callsign: <span id="session-callsign"></span></p>
+                </div>
+                <div class="card__actions">
+                  <button class="btn btn--primary" id="session-start">Start Session</button>
+                  <button class="btn btn--ghost" id="session-next">Next Instruction</button>
+                </div>
+              </div>
+              <div class="session__grid">
+                <div class="session__panel">
+                  <h3>Live Transcript</h3>
+                  <p class="muted">Speak your readback or type it below. The trainer will score it.</p>
+                  <textarea
+                    id="session-text"
+                    placeholder="Push-to-talk or type your readback here."
+                  ></textarea>
+                  <div class="session__actions">
+                    <button class="btn btn--primary" id="session-check">Score Readback</button>
+                    <button class="btn btn--ghost" id="session-clear">Clear</button>
+                    <button class="btn btn--ghost" id="session-mic">🎙️ Hold to Talk</button>
+                  </div>
+                  <div class="result" id="session-result"></div>
+                </div>
+                <div class="session__panel">
+                  <h3>Session Timeline</h3>
+                  <ul class="session__timeline" id="session-timeline"></ul>
+                </div>
+              </div>
             </section>
 
             <section class="card" id="scenario">

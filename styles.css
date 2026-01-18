@@ -311,6 +311,56 @@ body {
   margin-top: 12px;
 }
 
+.session__grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.session__panel {
+  background: var(--sky-100);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  border: 1px solid #dbe7f5;
+  display: grid;
+  gap: 12px;
+}
+
+.session__panel textarea {
+  width: 100%;
+  min-height: 120px;
+  border-radius: var(--radius-md);
+  border: 1px solid #d5e2f1;
+  padding: 12px;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, monospace;
+}
+
+.session__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.session__timeline {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+  color: var(--ink-700);
+}
+
+.session__timeline li {
+  background: #fff;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border: 1px solid #dbe7f5;
+}
+
+.session__timeline strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
 .scenario__grid {
   display: grid;
   gap: 20px;

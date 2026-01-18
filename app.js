@@ -133,6 +133,12 @@ const elements = {
   stripClearance: document.getElementById("strip-clearance"),
   stripMeta: document.getElementById("strip-meta"),
   scenarioPhrase: document.getElementById("scenario-phrase"),
+  sessionAtc: document.getElementById("session-atc"),
+  sessionCallsign: document.getElementById("session-callsign"),
+  sessionText: document.getElementById("session-text"),
+  sessionResult: document.getElementById("session-result"),
+  sessionTimeline: document.getElementById("session-timeline"),
+  sessionMic: document.getElementById("session-mic"),
 };
 
 let score = 0;
@@ -140,6 +146,9 @@ let streak = 0;
 let currentMatch = null;
 let currentReadback = null;
 let currentScenario = null;
+let sessionQueue = [];
+let currentSession = null;
+let recognition = null;
 
 const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
 
@@ -198,6 +207,38 @@ const speak = (text, rate = 1) => {
   if (selected) utterance.voice = selected;
   speechSynthesis.cancel();
   speechSynthesis.speak(utterance);
+};
+
+const getSpeechRecognition = () => {
+  if ("webkitSpeechRecognition" in window) {
+    return new window.webkitSpeechRecognition();
+  }
+  if ("SpeechRecognition" in window) {
+    return new window.SpeechRecognition();
+  }
+  return null;
+};
+
+const initRecognition = () => {
+  const engine = getSpeechRecognition();
+  if (!engine) {
+    elements.sessionMic.disabled = true;
+    elements.sessionMic.textContent = "🎙️ Mic Unsupported";
+    return;
+  }
+  recognition = engine;
+  recognition.lang = "en-US";
+  recognition.interimResults = true;
+  recognition.continuous = false;
+  recognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map((result) => result[0].transcript)
+      .join(" ");
+    elements.sessionText.value = transcript.trim();
+  };
+  recognition.onerror = () => {
+    elements.sessionResult.textContent = "Microphone error. Try again or type your readback.";
+  };
 };
 
 const updateScore = (delta, resetStreak = false) => {
@@ -281,6 +322,67 @@ const updateReadbackResult = () => {
   updateScore(grade.ok ? 1 : 0, !grade.ok);
 };
 
+const buildSession = () => {
+  sessionQueue = shuffle(PHRASES).slice(0, 5);
+  currentSession = sessionQueue.shift();
+  elements.sessionTimeline.innerHTML = "";
+  elements.sessionResult.textContent = "";
+  elements.sessionText.value = "";
+  renderSessionStep();
+};
+
+const renderSessionStep = () => {
+  if (!currentSession) {
+    elements.sessionAtc.textContent = "Session complete. Great job!";
+    elements.sessionCallsign.textContent = "";
+    return;
+  }
+  elements.sessionAtc.textContent = currentSession.atc;
+  elements.sessionCallsign.textContent = currentSession.callsign;
+  elements.sessionText.value = "";
+  elements.sessionResult.textContent = "";
+  speak(currentSession.atc, 1.02);
+};
+
+const scoreSessionReadback = () => {
+  if (!currentSession) {
+    elements.sessionResult.textContent = "Start a session to begin.";
+    return;
+  }
+  const typed = elements.sessionText.value.trim();
+  if (!typed) {
+    elements.sessionResult.textContent = "Speak or type your readback before scoring.";
+    return;
+  }
+  const grade = gradeReadback(typed, currentSession.expectedReadback);
+  elements.sessionResult.innerHTML = `
+    <strong>${grade.ok ? "On point!" : "Readback needs tightening."}</strong>
+    Score: ${grade.overall}%.
+    <div class="muted">Key tokens missed: ${
+      grade.required.filter((token) => !keyTokens(typed).tokens.includes(token)).join(", ") || "None"
+    }.</div>
+    <div class="muted">Expected numbers: ${grade.nums.join(", ") || "—"}.</div>
+  `;
+  const timelineItem = document.createElement("li");
+  timelineItem.innerHTML = `
+    <strong>${currentSession.callsign}</strong>
+    <span>${currentSession.atc}</span>
+    <div class="muted">Your readback: ${typed}</div>
+    <div class="muted">Score: ${grade.overall}%</div>
+  `;
+  elements.sessionTimeline.prepend(timelineItem);
+  updateScore(grade.ok ? 2 : 0, !grade.ok);
+};
+
+const nextSessionStep = () => {
+  if (!sessionQueue.length) {
+    currentSession = null;
+  } else {
+    currentSession = sessionQueue.shift();
+  }
+  renderSessionStep();
+};
+
 const buildTraffic = () => {
   elements.trafficList.innerHTML = "";
   shuffle(TRAFFIC).forEach((item) => {
@@ -356,6 +458,30 @@ document.getElementById("readback-clear").addEventListener("click", () => {
 document.getElementById("readback-speak").addEventListener("click", () => {
   speak(elements.readbackText.value || "No readback entered.");
 });
+document.getElementById("session-start").addEventListener("click", buildSession);
+document.getElementById("session-next").addEventListener("click", nextSessionStep);
+document.getElementById("session-check").addEventListener("click", scoreSessionReadback);
+document.getElementById("session-clear").addEventListener("click", () => {
+  elements.sessionText.value = "";
+});
+elements.sessionMic.addEventListener("mousedown", () => {
+  if (recognition) {
+    recognition.start();
+    elements.sessionMic.textContent = "🎙️ Listening...";
+  }
+});
+elements.sessionMic.addEventListener("mouseup", () => {
+  if (recognition) {
+    recognition.stop();
+    elements.sessionMic.textContent = "🎙️ Hold to Talk";
+  }
+});
+elements.sessionMic.addEventListener("mouseleave", () => {
+  if (recognition) {
+    recognition.stop();
+    elements.sessionMic.textContent = "🎙️ Hold to Talk";
+  }
+});
 document.getElementById("scenario-generate").addEventListener("click", () => {
   buildScenario();
   buildAtis();
@@ -367,6 +493,7 @@ document.getElementById("refresh-traffic").addEventListener("click", buildTraffi
 document.getElementById("start-session").addEventListener("click", () => {
   buildMatch();
   buildReadback();
+  buildSession();
   buildScenario();
   buildTraffic();
   buildAtis();
@@ -381,3 +508,4 @@ buildReadback();
 buildScenario();
 buildTraffic();
 buildAtis();
+initRecognition();
