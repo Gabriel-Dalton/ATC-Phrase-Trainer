@@ -5,208 +5,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YVR ATC Phrase Trainer</title>
     <link rel="stylesheet" href="./styles.css" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
   </head>
   <body>
     <div class="app">
       <header class="hero">
         <div class="hero__content">
-          <div class="badge">CYVR • Vancouver International</div>
-          <h1>ATC Phrase Trainer</h1>
-          <p>
-            Run a full YVR-style session with realistic callsigns, runway configs, ATIS, and
-            readbacks. Practice like you are the controller on duty.
-          </p>
+          <div class="badge">CYVR • VANCOUVER CONTROL</div>
+          <h1>ATC SIMULATION</h1>
+          <p>Live ATC simulation. Listen to clearances. Respond with proper readbacks. Improve your phraseology.</p>
           <div class="hero__actions">
-            <button class="btn btn--primary" id="start-session">Start Session</button>
-            <button class="btn btn--ghost" id="play-atis">Play ATIS</button>
-          </div>
-        </div>
-        <div class="hero__panel">
-          <div class="panel panel--dark">
-            <div class="panel__header">
-              <h3>Live YVR Ops</h3>
-              <span class="status-pill status-pill--green">Active</span>
-            </div>
-            <div class="panel__grid">
-              <div>
-                <p class="label">Runway Config</p>
-                <p class="value" id="runway-config">08L / 08R</p>
-              </div>
-              <div>
-                <p class="label">ATIS Code</p>
-                <p class="value" id="atis-code">BRAVO</p>
-              </div>
-              <div>
-                <p class="label">Wind</p>
-                <p class="value" id="wind-readout">070/08</p>
-              </div>
-              <div>
-                <p class="label">Altimeter</p>
-                <p class="value" id="altimeter">30.12</p>
-              </div>
-            </div>
-            <div class="panel__footer">
-              <p id="atis-summary">
-                YVR information Bravo. Wind 070 at 8. Visibility 10. Few clouds 4000. Temperature 16,
-                dewpoint 9. Altimeter 30.12. Landing runway 08R, departing runway 08L.
-              </p>
-            </div>
+            <button class="btn btn--primary" id="start-session">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M5 3l14 9-14 9V3z"/>
+              </svg>
+              Start Simulation
+            </button>
           </div>
         </div>
       </header>
 
       <main class="main">
-        <section class="dashboard">
-          <div class="panel">
-            <div class="panel__header">
-              <h3>Traffic Snapshot</h3>
-              <button class="btn btn--ghost btn--sm" id="refresh-traffic">Refresh</button>
-            </div>
-            <ul class="traffic" id="traffic-list"></ul>
-          </div>
-          <div class="panel panel--accent">
-            <div class="panel__header">
-              <h3>Session Brief</h3>
-              <span class="label">Training Goals</span>
-            </div>
-            <ul class="briefing">
-              <li>Sequencing arrivals for 08R ILS with 4 NM spacing.</li>
-              <li>Coordinating departures off 08L with noise abatement.</li>
-              <li>Using proper ICAO phraseology and concise readbacks.</li>
-            </ul>
-            <div class="briefing__footer">
-              <div>
-                <p class="label">Score</p>
-                <p class="value" id="session-score">0</p>
-              </div>
-              <div>
-                <p class="label">Streak</p>
-                <p class="value" id="session-streak">0</p>
-              </div>
-              <div>
-                <p class="label">Mode</p>
-                <p class="value" id="session-mode">Phrase Match</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section class="trainer">
-          <div class="trainer__tabs">
-            <button class="tab tab--active" data-tab="match">Phrase Match</button>
-            <button class="tab" data-tab="readback">Readback Practice</button>
-            <button class="tab" data-tab="session">Live Session</button>
-            <button class="tab" data-tab="scenario">Scenario Builder</button>
-          </div>
-
           <div class="trainer__content">
-            <section class="card card--active" id="match">
+            <section class="card card--active" id="session">
               <div class="card__header">
                 <div>
-                  <p class="label">Controller Transmission</p>
-                  <h2 id="match-atc">WestJet 407, maintain three thousand until established...</h2>
-                  <p class="muted">Callsign: <span id="match-callsign">WestJet 407</span></p>
-                </div>
-                <div class="card__actions">
-                  <button class="btn btn--ghost" id="match-play">Play</button>
-                  <button class="btn btn--ghost" id="match-next">New Transmission</button>
-                </div>
-              </div>
-              <div class="choices" id="match-choices"></div>
-              <div class="result" id="match-result"></div>
-            </section>
-
-            <section class="card" id="readback">
-              <div class="card__header">
-                <div>
-                  <p class="label">Controller Transmission</p>
-                  <h2 id="readback-atc"></h2>
-                  <p class="muted">Callsign: <span id="readback-callsign"></span></p>
-                </div>
-                <div class="card__actions">
-                  <button class="btn btn--ghost" id="readback-play">Play</button>
-                  <button class="btn btn--ghost" id="readback-next">New Transmission</button>
-                </div>
-              </div>
-              <div class="readback__input">
-                <label for="readback-text">Type your readback:</label>
-                <textarea id="readback-text" placeholder="Down to five thousand unrestricted, Jazz 3230."></textarea>
-                <div class="readback__actions">
-                  <button class="btn btn--primary" id="readback-check">Check</button>
-                  <button class="btn btn--ghost" id="readback-clear">Clear</button>
-                  <button class="btn btn--ghost" id="readback-speak">Speak My Readback</button>
-                </div>
-              </div>
-              <div class="result" id="readback-result"></div>
-            </section>
-
-            <section class="card" id="session">
-              <div class="card__header">
-                <div>
-                  <p class="label">Live ATC Simulation</p>
-                  <h2 id="session-atc">Start a simulation to begin receiving clearances...</h2>
-                  <p class="muted">You are the pilot. Listen to the controller and respond with readbacks.</p>
-                </div>
-                <div class="card__actions">
-                  <button class="btn btn--primary" id="session-start">🚀 Start Simulation</button>
+                  <p class="label">LIVE ATC SIMULATION</p>
+                  <h2 id="session-atc">Ready to begin. Press Start Simulation.</h2>
                 </div>
               </div>
               <div class="session__grid">
                 <div class="session__panel">
-                  <h3>Live Transcript</h3>
-                  <p class="muted">The controller will speak to you. Listen carefully, then say or type your readback.</p>
+                  <h3>CLEARANCE TRANSMISSION</h3>
+                  <p class="muted">Listen carefully. Respond with your readback.</p>
+                  
+                  <div class="mic-indicator">
+                    <div class="mic-dot"></div>
+                    <span id="mic-status" class="mic-status">Ready</span>
+                  </div>
+                  
                   <textarea
                     id="session-text"
                     placeholder="Your readback will appear here (spoken or typed)..."
+                    class="transcript-area"
                   ></textarea>
+                  
                   <div class="session__actions">
-                    <button class="btn btn--primary" id="session-mic">🎙️ Hold to Talk</button>
-                    <button class="btn btn--ghost" id="session-check">Submit Readback</button>
-                    <button class="btn btn--ghost" id="session-clear">Clear</button>
+                    <button class="btn btn--mic" id="session-mic" title="Hold to speak. Release to submit.">
+                      <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2m7 11v4m-4 0h8"/>
+                      </svg>
+                      Mic Ready
+                    </button>
+                    <button class="btn btn--secondary" id="session-check">
+                      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                      Submit
+                    </button>
+                    <button class="btn btn--ghost" id="session-clear">
+                      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M3 6h18M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m3 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6h12z"/>
+                      </svg>
+                      Clear
+                    </button>
                   </div>
+                  
                   <div class="result" id="session-result"></div>
                 </div>
+                
                 <div class="session__panel">
-                  <h3>Session Timeline</h3>
+                  <h3>TRANSMISSION LOG</h3>
                   <ul class="session__timeline" id="session-timeline"></ul>
                 </div>
               </div>
-            </section>
-
-            <section class="card" id="scenario">
-              <div class="card__header">
-                <div>
-                  <p class="label">Scenario Builder</p>
-                  <h2>Build a live YVR flow with arrivals, departures, and ground coordination.</h2>
-                  <p class="muted">Generate a full setup, then role-play the controller and pilot.</p>
+              
+              <div class="session__score">
+                <div class="score-item">
+                  <span class="score-label">SCORE</span>
+                  <span class="score-value" id="session-score">0</span>
                 </div>
-                <div class="card__actions">
-                  <button class="btn btn--primary" id="scenario-generate">Generate Scenario</button>
-                </div>
-              </div>
-              <div class="scenario__grid">
-                <div class="scenario__panel">
-                  <h3>Coordination Targets</h3>
-                  <ul id="scenario-tasks"></ul>
-                </div>
-                <div class="scenario__panel">
-                  <h3>Clearance Strip</h3>
-                  <div class="strip">
-                    <p class="strip__callsign" id="strip-callsign">ACA162</p>
-                    <p id="strip-clearance">Cleared to Edmonton via ABBOT6 departure...</p>
-                    <p class="strip__meta" id="strip-meta">Runway 08L • SID ABBOT6 • Initial 5000</p>
-                  </div>
-                </div>
-                <div class="scenario__panel">
-                  <h3>Suggested Phraseology</h3>
-                  <p id="scenario-phrase"></p>
-                  <button class="btn btn--ghost btn--sm" id="scenario-play">Play Phrase</button>
+                <div class="score-item">
+                  <span class="score-label">STREAK</span>
+                  <span class="score-value" id="session-streak">0</span>
                 </div>
               </div>
             </section>
@@ -215,10 +97,7 @@
       </main>
 
       <footer class="footer">
-        <p>
-          Training aid only. Examples inspired by common Vancouver (CYVR) operations and ICAO
-          phraseology. Not for real-world flight or ATC use.
-        </p>
+        <p>Training simulation only. Not for real-world ATC or flight operations.</p>
       </footer>
     </div>
 

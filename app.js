@@ -116,38 +116,20 @@ const elements = {
   windReadout: document.getElementById("wind-readout"),
   altimeter: document.getElementById("altimeter"),
   atisSummary: document.getElementById("atis-summary"),
-  matchAtc: document.getElementById("match-atc"),
-  matchCallsign: document.getElementById("match-callsign"),
-  matchChoices: document.getElementById("match-choices"),
-  matchResult: document.getElementById("match-result"),
-  readbackAtc: document.getElementById("readback-atc"),
-  readbackCallsign: document.getElementById("readback-callsign"),
-  readbackText: document.getElementById("readback-text"),
-  readbackResult: document.getElementById("readback-result"),
   sessionScore: document.getElementById("session-score"),
   sessionStreak: document.getElementById("session-streak"),
-  sessionMode: document.getElementById("session-mode"),
-  trafficList: document.getElementById("traffic-list"),
-  scenarioTasks: document.getElementById("scenario-tasks"),
-  stripCallsign: document.getElementById("strip-callsign"),
-  stripClearance: document.getElementById("strip-clearance"),
-  stripMeta: document.getElementById("strip-meta"),
-  scenarioPhrase: document.getElementById("scenario-phrase"),
-  sessionAtc: document.getElementById("session-atc"),
-  sessionCallsign: document.getElementById("session-callsign"),
   sessionText: document.getElementById("session-text"),
   sessionResult: document.getElementById("session-result"),
   sessionTimeline: document.getElementById("session-timeline"),
   sessionMic: document.getElementById("session-mic"),
+  sessionAtc: document.getElementById("session-atc"),
+  micStatus: document.getElementById("mic-status"),
 };
 
 let score = 0;
 let streak = 0;
-let currentMatch = null;
-let currentReadback = null;
-let currentScenario = null;
-let sessionQueue = [];
 let currentSession = null;
+let sessionQueue = [];
 let recognition = null;
 
 const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
@@ -223,21 +205,40 @@ const initRecognition = () => {
   const engine = getSpeechRecognition();
   if (!engine) {
     elements.sessionMic.disabled = true;
-    elements.sessionMic.textContent = "🎙️ Mic Unsupported";
+    elements.sessionMic.innerHTML = "Mic Unavailable";
+    if (elements.micStatus) {
+      elements.micStatus.textContent = "Speech recognition not supported in your browser";
+      elements.micStatus.className = "mic-status error";
+    }
     return;
   }
   recognition = engine;
   recognition.lang = "en-US";
   recognition.interimResults = true;
   recognition.continuous = false;
+  
+  recognition.onstart = () => {
+    if (elements.micStatus) {
+      elements.micStatus.textContent = "Listening...";
+      elements.micStatus.className = "mic-status active";
+    }
+  };
+  
   recognition.onresult = (event) => {
     const transcript = Array.from(event.results)
       .map((result) => result[0].transcript)
       .join(" ");
     elements.sessionText.value = transcript.trim();
+    if (elements.micStatus && event.results[event.results.length - 1].isFinal) {
+      elements.micStatus.textContent = "Captured";
+      elements.micStatus.className = "mic-status ready";
+    }
   };
+  
   recognition.onend = () => {
-    elements.sessionMic.textContent = "🎙️ Hold to Talk";
+    if (elements.sessionMic) {
+      elements.sessionMic.innerHTML = "Mic Ready";
+    }
     // Auto-score if in simulation mode
     if (currentSession && elements.sessionText.value.trim()) {
       setTimeout(() => {
@@ -245,10 +246,19 @@ const initRecognition = () => {
       }, 500);
     }
   };
-  recognition.onerror = () => {
-    elements.sessionResult.textContent = "Microphone error. Try again or type your readback.";
-    elements.sessionMic.textContent = "🎙️ Hold to Talk";
+  
+  recognition.onerror = (event) => {
+    if (elements.micStatus) {
+      elements.micStatus.textContent = `Mic error: ${event.error}. Try typing instead.`;
+      elements.micStatus.className = "mic-status error";
+    }
+    elements.sessionResult.innerHTML = `<span class="error-msg">Microphone error (${event.error}). Try typing your readback or check browser permissions.</span>`;
   };
+  
+  if (elements.micStatus) {
+    elements.micStatus.textContent = "Ready";
+    elements.micStatus.className = "mic-status ready";
+  }
 };
 
 const updateScore = (delta, resetStreak = false) => {
@@ -256,49 +266,6 @@ const updateScore = (delta, resetStreak = false) => {
   streak = resetStreak ? 0 : Math.max(0, streak + delta);
   elements.sessionScore.textContent = score;
   elements.sessionStreak.textContent = streak;
-};
-
-const buildMatch = () => {
-  currentMatch = PHRASES[Math.floor(Math.random() * PHRASES.length)];
-  elements.matchAtc.textContent = currentMatch.atc;
-  elements.matchCallsign.textContent = currentMatch.callsign;
-  const choices = shuffle([
-    currentMatch.meaning,
-    ...shuffle(PHRASES.filter((phrase) => phrase.id !== currentMatch.id))
-      .slice(0, 3)
-      .map((phrase) => phrase.meaning),
-  ]);
-  elements.matchChoices.innerHTML = "";
-  choices.forEach((choice) => {
-    const button = document.createElement("button");
-    button.className = "choice";
-    button.textContent = choice;
-    button.addEventListener("click", () => handleChoice(button, choice));
-    elements.matchChoices.appendChild(button);
-  });
-  elements.matchResult.textContent = "";
-};
-
-const handleChoice = (button, choice) => {
-  const allChoices = elements.matchChoices.querySelectorAll(".choice");
-  allChoices.forEach((choiceButton) => {
-    choiceButton.classList.remove("choice--correct", "choice--wrong");
-    choiceButton.disabled = true;
-  });
-  const correct = choice === currentMatch.meaning;
-  button.classList.add(correct ? "choice--correct" : "choice--wrong");
-  elements.matchResult.textContent = correct
-    ? "Correct — great situational awareness."
-    : `Not quite. Correct answer: ${currentMatch.meaning}`;
-  updateScore(correct ? 1 : 0, !correct);
-};
-
-const buildReadback = () => {
-  currentReadback = PHRASES[Math.floor(Math.random() * PHRASES.length)];
-  elements.readbackAtc.textContent = currentReadback.atc;
-  elements.readbackCallsign.textContent = currentReadback.callsign;
-  elements.readbackText.value = "";
-  elements.readbackResult.textContent = "";
 };
 
 const gradeReadback = (typed, reference) => {
@@ -344,11 +311,9 @@ const buildSession = () => {
 const renderSessionStep = () => {
   if (!currentSession) {
     elements.sessionAtc.textContent = "Session complete. Great job!";
-    elements.sessionCallsign.textContent = "";
     return;
   }
   elements.sessionAtc.textContent = currentSession.atc;
-  elements.sessionCallsign.textContent = currentSession.callsign;
   elements.sessionText.value = "";
   elements.sessionResult.textContent = "";
   speak(currentSession.atc, 1.02);
@@ -356,7 +321,11 @@ const renderSessionStep = () => {
   // Auto-listen after controller speaks
   setTimeout(() => {
     if (recognition) {
-      elements.sessionMic.textContent = "🎙️ Listening...";
+      elements.sessionMic.textContent = "🎙 Listening...";
+      if (elements.micStatus) {
+        elements.micStatus.textContent = "Microphone active - speak now";
+        elements.micStatus.className = "mic-status active";
+      }
       recognition.start();
     }
   }, currentSession.atc.length * 60);
@@ -406,128 +375,45 @@ const nextSessionStep = () => {
   renderSessionStep();
 };
 
-const buildTraffic = () => {
-  elements.trafficList.innerHTML = "";
-  shuffle(TRAFFIC).forEach((item) => {
-    const row = document.createElement("li");
-    row.innerHTML = `${item.callsign} <span>${item.status}</span>`;
-    elements.trafficList.appendChild(row);
-  });
-};
-
-const buildScenario = () => {
-  currentScenario = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
-  elements.scenarioTasks.innerHTML = "";
-  [currentScenario.task, "Monitor ground for crossing requests.", "Maintain runway separation minima."]
-    .map((task) => {
-      const li = document.createElement("li");
-      li.textContent = task;
-      return li;
-    })
-    .forEach((li) => elements.scenarioTasks.appendChild(li));
-  elements.stripCallsign.textContent = currentScenario.strip.callsign;
-  elements.stripClearance.textContent = currentScenario.strip.clearance;
-  elements.stripMeta.textContent = currentScenario.strip.meta;
-  elements.scenarioPhrase.textContent = currentScenario.phrase;
-};
-
-const buildAtis = () => {
-  const config = RUNWAY_CONFIGS[Math.floor(Math.random() * RUNWAY_CONFIGS.length)];
-  const atisLetters = ["ALPHA", "BRAVO", "CHARLIE", "DELTA", "ECHO", "FOXTROT"];
-  const atisCode = atisLetters[Math.floor(Math.random() * atisLetters.length)];
-  const windDirection = String(60 + Math.floor(Math.random() * 40)).padStart(3, "0");
-  const windSpeed = 6 + Math.floor(Math.random() * 10);
-  const temp = 12 + Math.floor(Math.random() * 10);
-  const dew = temp - 6;
-  const alt = (29.7 + Math.random() * 0.7).toFixed(2);
-  elements.runwayConfig.textContent = config.runways;
-  elements.atisCode.textContent = atisCode;
-  elements.windReadout.textContent = `${windDirection}/${windSpeed}`;
-  elements.altimeter.textContent = alt;
-  elements.atisSummary.textContent = `YVR information ${atisCode}. Wind ${windDirection} at ${windSpeed}. Visibility 10. Few clouds 4000. Temperature ${temp}, dewpoint ${dew}. Altimeter ${alt}. Landing runway ${config.arrivals}, departing runway ${config.departures}.`;
-};
-
-const setModeLabel = (label) => {
-  elements.sessionMode.textContent = label;
-};
-
-const initTabs = () => {
-  const tabs = document.querySelectorAll(".tab");
-  const cards = document.querySelectorAll(".card");
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      tabs.forEach((btn) => btn.classList.remove("tab--active"));
-      tab.classList.add("tab--active");
-      cards.forEach((card) => card.classList.remove("card--active"));
-      const target = document.getElementById(tab.dataset.tab);
-      target.classList.add("card--active");
-      setModeLabel(tab.textContent.trim());
-    });
-  });
-};
-
-document.getElementById("match-next").addEventListener("click", buildMatch);
-document.getElementById("match-play").addEventListener("click", () => {
-  if (currentMatch) speak(currentMatch.atc, 1.02);
-});
-document.getElementById("readback-next").addEventListener("click", buildReadback);
-document.getElementById("readback-play").addEventListener("click", () => {
-  if (currentReadback) speak(currentReadback.atc, 1.02);
-});
-document.getElementById("readback-check").addEventListener("click", updateReadbackResult);
-document.getElementById("readback-clear").addEventListener("click", () => {
-  elements.readbackText.value = "";
-});
-document.getElementById("readback-speak").addEventListener("click", () => {
-  speak(elements.readbackText.value || "No readback entered.");
-});
 document.getElementById("session-start").addEventListener("click", buildSession);
 document.getElementById("session-check").addEventListener("click", scoreSessionReadback);
 document.getElementById("session-clear").addEventListener("click", () => {
   elements.sessionText.value = "";
-});
-elements.sessionMic.addEventListener("mousedown", () => {
-  if (recognition) {
-    recognition.start();
-    elements.sessionMic.textContent = "🎙️ Listening...";
+  if (elements.micStatus) {
+    elements.micStatus.textContent = "Ready";
+    elements.micStatus.className = "mic-status ready";
   }
 });
-elements.sessionMic.addEventListener("mouseup", () => {
+elements.sessionMic.addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  if (recognition) {
+    recognition.start();
+  }
+});
+elements.sessionMic.addEventListener("mouseup", (e) => {
+  e.preventDefault();
   if (recognition) {
     recognition.stop();
-    elements.sessionMic.textContent = "🎙️ Hold to Talk";
   }
 });
 elements.sessionMic.addEventListener("mouseleave", () => {
-  if (recognition) {
+  if (recognition && recognition.continuous === false) {
     recognition.stop();
-    elements.sessionMic.textContent = "🎙️ Hold to Talk";
   }
 });
-document.getElementById("scenario-generate").addEventListener("click", () => {
-  buildScenario();
-  buildAtis();
+
+// Touch support for mobile
+elements.sessionMic.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  if (recognition) {
+    recognition.start();
+  }
 });
-document.getElementById("scenario-play").addEventListener("click", () => {
-  if (currentScenario) speak(currentScenario.phrase, 1.01);
-});
-document.getElementById("refresh-traffic").addEventListener("click", buildTraffic);
-document.getElementById("start-session").addEventListener("click", () => {
-  buildMatch();
-  buildReadback();
-  buildSession();
-  buildScenario();
-  buildTraffic();
-  buildAtis();
-});
-document.getElementById("play-atis").addEventListener("click", () => {
-  speak(elements.atisSummary.textContent, 1.02);
+elements.sessionMic.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  if (recognition) {
+    recognition.stop();
+  }
 });
 
-initTabs();
-buildMatch();
-buildReadback();
-buildScenario();
-buildTraffic();
-buildAtis();
 initRecognition();
