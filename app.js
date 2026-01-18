@@ -1,20 +1,16 @@
+// Phrase library for ATC simulation
 const PHRASES = [
   {
     id: "yvr-arrival-ils-08r",
     callsign: "WestJet 407",
     atc: "WestJet 407, maintain three thousand until established, cleared ILS runway zero eight right.",
-    meaning: "Hold 3,000 ft until established, then continue the ILS approach to Runway 08R.",
     expectedReadback: "Maintain three thousand until established, cleared ILS zero eight right, WestJet 407.",
-    sector: "Approach",
   },
   {
     id: "yvr-departure-abbot6",
     callsign: "Air Canada 162",
     atc: "Air Canada 162, cleared to Edmonton via ABBOT six departure, runway zero eight left. Maintain five thousand, expect flight level two four zero ten minutes after departure.",
-    meaning: "Cleared to Edmonton via ABBOT6, depart 08L, climb to 5,000 ft and expect FL240 after 10 minutes.",
-    expectedReadback:
-      "Cleared to Edmonton via ABBOT six, runway zero eight left, maintain five thousand, expect flight level two four zero ten minutes after, Air Canada 162.",
-    sector: "Delivery",
+    expectedReadback: "Cleared to Edmonton via ABBOT six, runway zero eight left, maintain five thousand, expect flight level two four zero ten minutes after, Air Canada 162.",
   },
   {
     id: "yvr-ground-taxi",
@@ -23,18 +19,13 @@ const PHRASES = [
     meaning: "Taxi via Alpha/Charlie to 08L and stop before crossing 08R.",
     expectedReadback:
       "Taxi to zero eight left via Alpha Charlie, hold short zero eight right, Jazz 3230.",
-    sector: "Ground",
-  },
-  {
-    id: "yvr-tower-lineup",
+    expectedReadback: "Taxi to zero eight left via Alpha Charlie, hold short zero eight right, Jazz 3230.lineup",
     callsign: "Harbour Air 59",
     atc: "Harbour Air 59, line up and wait runway zero eight left, landing traffic on zero eight right.",
     meaning: "Enter and hold on 08L while another aircraft lands on 08R.",
     expectedReadback: "Line up and wait zero eight left, Harbour Air 59.",
     sector: "Tower",
-  },
-  {
-    id: "yvr-approach-descend",
+  },expectedReadback: "Line up and wait zero eight left, Harbour Air 59.ach-descend",
     callsign: "Alaska 213",
     atc: "Alaska 213, descend to four thousand, reduce speed to two one zero knots.",
     meaning: "Descend to 4,000 ft and slow to 210 knots.",
@@ -42,24 +33,18 @@ const PHRASES = [
     sector: "Approach",
   },
   {
-    id: "yvr-tower-cleared-takeoff",
-    callsign: "Sunwing 602",
-    atc: "Sunwing 602, winds zero seven zero at eight, runway zero eight left cleared for takeoff.",
+    expectedReadback: "Down to four thousand, speed two one zero, Alaska 213., winds zero seven zero at eight, runway zero eight left cleared for takeoff.",
     meaning: "Takeoff clearance on 08L with wind 070/8.",
     expectedReadback: "Cleared for takeoff zero eight left, Sunwing 602.",
     sector: "Tower",
   },
-  {
-    id: "yvr-ground-push",
-    callsign: "Pacific Coastal 31",
+  {expectedReadback: "Cleared for takeoff zero eight left, Sunwing 602.ific Coastal 31",
     atc: "Pacific Coastal 31, pushback approved, expect taxi to runway two six left.",
     meaning: "Pushback allowed; anticipate taxiing to 26L.",
     expectedReadback: "Pushback approved, expect two six left, Pacific Coastal 31.",
     sector: "Ground",
   },
-  {
-    id: "yvr-approach-contact-tower",
-    callsign: "Porter 114",
+  {expectedReadback: "Pushback approved, expect two six left, Pacific Coastal 31.er 114",
     atc: "Porter 114, contact tower one one niner decimal five, good day.",
     meaning: "Switch to tower frequency 119.5 MHz.",
     expectedReadback: "Over to tower on one one niner decimal five, Porter 114.",
@@ -67,9 +52,7 @@ const PHRASES = [
   },
 ];
 
-const SCENARIOS = [
-  {
-    task: "Sequence three arrivals onto 08R, keep 170 knots to 4 DME.",
+consexpectedReadback: "Over to tower on one one niner decimal five, Porter 114.hree arrivals onto 08R, keep 170 knots to 4 DME.",
     strip: {
       callsign: "WSH407",
       clearance: "Cleared ILS 08R, maintain 3,000 until established.",
@@ -111,11 +94,6 @@ const TRAFFIC = [
 ];
 
 const elements = {
-  runwayConfig: document.getElementById("runway-config"),
-  atisCode: document.getElementById("atis-code"),
-  windReadout: document.getElementById("wind-readout"),
-  altimeter: document.getElementById("altimeter"),
-  atisSummary: document.getElementById("atis-summary"),
   sessionScore: document.getElementById("session-score"),
   sessionStreak: document.getElementById("session-streak"),
   sessionText: document.getElementById("session-text"),
@@ -204,8 +182,10 @@ const getSpeechRecognition = () => {
 const initRecognition = () => {
   const engine = getSpeechRecognition();
   if (!engine) {
-    elements.sessionMic.disabled = true;
-    elements.sessionMic.innerHTML = "Mic Unavailable";
+    if (elements.sessionMic) {
+      elements.sessionMic.disabled = true;
+      elements.sessionMic.innerHTML = "Mic Unavailable";
+    }
     if (elements.micStatus) {
       elements.micStatus.textContent = "Speech recognition not supported in your browser";
       elements.micStatus.className = "mic-status error";
@@ -228,7 +208,9 @@ const initRecognition = () => {
     const transcript = Array.from(event.results)
       .map((result) => result[0].transcript)
       .join(" ");
-    elements.sessionText.value = transcript.trim();
+    if (elements.sessionText) {
+      elements.sessionText.value = transcript.trim();
+    }
     if (elements.micStatus && event.results[event.results.length - 1].isFinal) {
       elements.micStatus.textContent = "Captured";
       elements.micStatus.className = "mic-status ready";
@@ -240,7 +222,7 @@ const initRecognition = () => {
       elements.sessionMic.innerHTML = "Mic Ready";
     }
     // Auto-score if in simulation mode
-    if (currentSession && elements.sessionText.value.trim()) {
+    if (currentSession && elements.sessionText && elements.sessionText.value.trim()) {
       setTimeout(() => {
         scoreSessionReadback();
       }, 500);
@@ -252,7 +234,9 @@ const initRecognition = () => {
       elements.micStatus.textContent = `Mic error: ${event.error}. Try typing instead.`;
       elements.micStatus.className = "mic-status error";
     }
-    elements.sessionResult.innerHTML = `<span class="error-msg">Microphone error (${event.error}). Try typing your readback or check browser permissions.</span>`;
+    if (elements.sessionResult) {
+      elements.sessionResult.innerHTML = `<span class="error-msg">Microphone error (${event.error}). Try typing your readback or check browser permissions.</span>`;
+    }
   };
   
   if (elements.micStatus) {
@@ -264,8 +248,8 @@ const initRecognition = () => {
 const updateScore = (delta, resetStreak = false) => {
   score = Math.max(0, score + delta);
   streak = resetStreak ? 0 : Math.max(0, streak + delta);
-  elements.sessionScore.textContent = score;
-  elements.sessionStreak.textContent = streak;
+  if (elements.sessionScore) elements.sessionScore.textContent = score;
+  if (elements.sessionStreak) elements.sessionStreak.textContent = streak;
 };
 
 const gradeReadback = (typed, reference) => {
@@ -299,29 +283,54 @@ const updateReadbackResult = () => {
   updateScore(grade.ok ? 1 : 0, !grade.ok);
 };
 
+const updateReadbackResult = () => {
+  const typed = elements.readbackText.value.trim();
+  if (!typed) {
+    elements.readbackResult.textContent = "Type a readback to check your accuracy.";
+    return;
+  }
+  const grade = gradeReadback(typed, currentReadback.expectedReadback);
+  elements.readbackResult.innerHTML = `
+    <strong>${grade.ok ? "Great readback!" : "Needs improvement."}</strong>
+    Score: ${grade.overall}%.
+    <div class="muted">Key tokens: ${grade.required.join(", ") || "—"}.</div>
+    <div class="muted">Numbers: ${grade.nums.join(", ") || "—"}.</div>
+    ${grade.ok ? "" : `<div class="muted">Ideal: ${currentReadback.expectedReadback}</div>`}
+  `;
+  updateScore(grade.ok ? 1 : 0, !grade.ok);
+};
+
 const buildSession = () => {
   sessionQueue = shuffle(PHRASES).slice(0, 5);
   currentSession = sessionQueue.shift();
-  elements.sessionTimeline.innerHTML = "";
-  elements.sessionResult.textContent = "";
-  elements.sessionText.value = "";
+  if (elements.sessionTimeline) elements.sessionTimeline.innerHTML = "";
+  if (elements.sessionResult) elements.sessionResult.textContent = "";
+  if (elements.sessionText) elements.sessionText.value = "";
   renderSessionStep();
 };
 
 const renderSessionStep = () => {
   if (!currentSession) {
-    elements.sessionAtc.textContent = "Session complete. Great job!";
+    if (elements.sessionAtc) {
+      elements.sessionAtc.textContent = "Session complete. Great job!";
+    }
     return;
   }
-  elements.sessionAtc.textContent = currentSession.atc;
-  elements.sessionText.value = "";
-  elements.sessionResult.textContent = "";
+  if (elements.sessionAtc) {
+    elements.sessionAtc.textContent = currentSession.atc;
+  }
+  if (elements.sessionText) {
+    elements.sessionText.value = "";
+  }
+  if (elements.sessionResult) {
+    elements.sessionResult.textContent = "";
+  }
   speak(currentSession.atc, 1.02);
   
   // Auto-listen after controller speaks
   setTimeout(() => {
-    if (recognition) {
-      elements.sessionMic.textContent = "🎙 Listening...";
+    if (recognition && elements.sessionMic) {
+      elements.sessionMic.textContent = "Listening...";
       if (elements.micStatus) {
         elements.micStatus.textContent = "Microphone active - speak now";
         elements.micStatus.className = "mic-status active";
@@ -333,16 +342,21 @@ const renderSessionStep = () => {
 
 const scoreSessionReadback = () => {
   if (!currentSession) {
-    elements.sessionResult.textContent = "Start a session to begin.";
+    if (elements.sessionResult) {
+      elements.sessionResult.textContent = "Start a session to begin.";
+    }
     return;
   }
-  const typed = elements.sessionText.value.trim();
+  const typed = elements.sessionText ? elements.sessionText.value.trim() : "";
   if (!typed) {
-    elements.sessionResult.textContent = "Speak or type your readback before scoring.";
+    if (elements.sessionResult) {
+      elements.sessionResult.textContent = "Speak or type your readback before scoring.";
+    }
     return;
   }
   const grade = gradeReadback(typed, currentSession.expectedReadback);
-  elements.sessionResult.innerHTML = `
+  if (elements.sessionResult) {
+    elements.sessionResult.innerHTML = `
     <strong>${grade.ok ? "On point!" : "Readback needs tightening."}</strong>
     Score: ${grade.overall}%.
     <div class="muted">Key tokens missed: ${
@@ -350,6 +364,7 @@ const scoreSessionReadback = () => {
     }.</div>
     <div class="muted">Expected numbers: ${grade.nums.join(", ") || "—"}.</div>
   `;
+  }
   const timelineItem = document.createElement("li");
   timelineItem.innerHTML = `
     <strong>${currentSession.callsign}</strong>
@@ -357,7 +372,9 @@ const scoreSessionReadback = () => {
     <div class="muted">Your readback: ${typed}</div>
     <div class="muted">Score: ${grade.overall}%</div>
   `;
-  elements.sessionTimeline.prepend(timelineItem);
+  if (elements.sessionTimeline) {
+    elements.sessionTimeline.prepend(timelineItem);
+  }
   updateScore(grade.ok ? 2 : 0, !grade.ok);
   
   // Auto-continue to next instruction
@@ -378,42 +395,50 @@ const nextSessionStep = () => {
 document.getElementById("session-start").addEventListener("click", buildSession);
 document.getElementById("session-check").addEventListener("click", scoreSessionReadback);
 document.getElementById("session-clear").addEventListener("click", () => {
-  elements.sessionText.value = "";
+  if (elements.sessionText) {
+    elements.sessionText.value = "";
+  }
   if (elements.micStatus) {
     elements.micStatus.textContent = "Ready";
     elements.micStatus.className = "mic-status ready";
   }
 });
-elements.sessionMic.addEventListener("mousedown", (e) => {
-  e.preventDefault();
-  if (recognition) {
-    recognition.start();
-  }
-});
-elements.sessionMic.addEventListener("mouseup", (e) => {
-  e.preventDefault();
-  if (recognition) {
-    recognition.stop();
-  }
-});
-elements.sessionMic.addEventListener("mouseleave", () => {
-  if (recognition && recognition.continuous === false) {
-    recognition.stop();
-  }
-});
 
-// Touch support for mobile
-elements.sessionMic.addEventListener("touchstart", (e) => {
-  e.preventDefault();
-  if (recognition) {
-    recognition.start();
-  }
-});
-elements.sessionMic.addEventListener("touchend", (e) => {
-  e.preventDefault();
-  if (recognition) {
-    recognition.stop();
-  }
-});
+if (elements.sessionMic) {
+  elements.sessionMic.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    if (recognition) {
+      recognition.start();
+    }
+  });
+
+  elements.sessionMic.addEventListener("mouseup", (e) => {
+    e.preventDefault();
+    if (recognition) {
+      recognition.stop();
+    }
+  });
+
+  elements.sessionMic.addEventListener("mouseleave", () => {
+    if (recognition && recognition.continuous === false) {
+      recognition.stop();
+    }
+  });
+
+  // Touch support for mobile
+  elements.sessionMic.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    if (recognition) {
+      recognition.start();
+    }
+  });
+
+  elements.sessionMic.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    if (recognition) {
+      recognition.stop();
+    }
+  });
+}
 
 initRecognition();
