@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YVR ATC Phrase Trainer</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <header class="hero">
+        <div class="hero__content">
+          <div class="badge">CYVR • Vancouver International</div>
+          <h1>ATC Phrase Trainer</h1>
+          <p>
+            Run a full YVR-style session with realistic callsigns, runway configs, ATIS, and
+            readbacks. Practice like you are the controller on duty.
+          </p>
+          <div class="hero__actions">
+            <button class="btn btn--primary" id="start-session">Start Session</button>
+            <button class="btn btn--ghost" id="play-atis">Play ATIS</button>
+          </div>
+        </div>
+        <div class="hero__panel">
+          <div class="panel panel--dark">
+            <div class="panel__header">
+              <h3>Live YVR Ops</h3>
+              <span class="status-pill status-pill--green">Active</span>
+            </div>
+            <div class="panel__grid">
+              <div>
+                <p class="label">Runway Config</p>
+                <p class="value" id="runway-config">08L / 08R</p>
+              </div>
+              <div>
+                <p class="label">ATIS Code</p>
+                <p class="value" id="atis-code">BRAVO</p>
+              </div>
+              <div>
+                <p class="label">Wind</p>
+                <p class="value" id="wind-readout">070/08</p>
+              </div>
+              <div>
+                <p class="label">Altimeter</p>
+                <p class="value" id="altimeter">30.12</p>
+              </div>
+            </div>
+            <div class="panel__footer">
+              <p id="atis-summary">
+                YVR information Bravo. Wind 070 at 8. Visibility 10. Few clouds 4000. Temperature 16,
+                dewpoint 9. Altimeter 30.12. Landing runway 08R, departing runway 08L.
+              </p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="dashboard">
+          <div class="panel">
+            <div class="panel__header">
+              <h3>Traffic Snapshot</h3>
+              <button class="btn btn--ghost btn--sm" id="refresh-traffic">Refresh</button>
+            </div>
+            <ul class="traffic" id="traffic-list"></ul>
+          </div>
+          <div class="panel panel--accent">
+            <div class="panel__header">
+              <h3>Session Brief</h3>
+              <span class="label">Training Goals</span>
+            </div>
+            <ul class="briefing">
+              <li>Sequencing arrivals for 08R ILS with 4 NM spacing.</li>
+              <li>Coordinating departures off 08L with noise abatement.</li>
+              <li>Using proper ICAO phraseology and concise readbacks.</li>
+            </ul>
+            <div class="briefing__footer">
+              <div>
+                <p class="label">Score</p>
+                <p class="value" id="session-score">0</p>
+              </div>
+              <div>
+                <p class="label">Streak</p>
+                <p class="value" id="session-streak">0</p>
+              </div>
+              <div>
+                <p class="label">Mode</p>
+                <p class="value" id="session-mode">Phrase Match</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="trainer">
+          <div class="trainer__tabs">
+            <button class="tab tab--active" data-tab="match">Phrase Match</button>
+            <button class="tab" data-tab="readback">Readback Practice</button>
+            <button class="tab" data-tab="scenario">Scenario Builder</button>
+          </div>
+
+          <div class="trainer__content">
+            <section class="card card--active" id="match">
+              <div class="card__header">
+                <div>
+                  <p class="label">Controller Transmission</p>
+                  <h2 id="match-atc">WestJet 407, maintain three thousand until established...</h2>
+                  <p class="muted">Callsign: <span id="match-callsign">WestJet 407</span></p>
+                </div>
+                <div class="card__actions">
+                  <button class="btn btn--ghost" id="match-play">Play</button>
+                  <button class="btn btn--ghost" id="match-next">New Transmission</button>
+                </div>
+              </div>
+              <div class="choices" id="match-choices"></div>
+              <div class="result" id="match-result"></div>
+            </section>
+
+            <section class="card" id="readback">
+              <div class="card__header">
+                <div>
+                  <p class="label">Controller Transmission</p>
+                  <h2 id="readback-atc"></h2>
+                  <p class="muted">Callsign: <span id="readback-callsign"></span></p>
+                </div>
+                <div class="card__actions">
+                  <button class="btn btn--ghost" id="readback-play">Play</button>
+                  <button class="btn btn--ghost" id="readback-next">New Transmission</button>
+                </div>
+              </div>
+              <div class="readback__input">
+                <label for="readback-text">Type your readback:</label>
+                <textarea id="readback-text" placeholder="Down to five thousand unrestricted, Jazz 3230."></textarea>
+                <div class="readback__actions">
+                  <button class="btn btn--primary" id="readback-check">Check</button>
+                  <button class="btn btn--ghost" id="readback-clear">Clear</button>
+                  <button class="btn btn--ghost" id="readback-speak">Speak My Readback</button>
+                </div>
+              </div>
+              <div class="result" id="readback-result"></div>
+            </section>
+
+            <section class="card" id="scenario">
+              <div class="card__header">
+                <div>
+                  <p class="label">Scenario Builder</p>
+                  <h2>Build a live YVR flow with arrivals, departures, and ground coordination.</h2>
+                  <p class="muted">Generate a full setup, then role-play the controller and pilot.</p>
+                </div>
+                <div class="card__actions">
+                  <button class="btn btn--primary" id="scenario-generate">Generate Scenario</button>
+                </div>
+              </div>
+              <div class="scenario__grid">
+                <div class="scenario__panel">
+                  <h3>Coordination Targets</h3>
+                  <ul id="scenario-tasks"></ul>
+                </div>
+                <div class="scenario__panel">
+                  <h3>Clearance Strip</h3>
+                  <div class="strip">
+                    <p class="strip__callsign" id="strip-callsign">ACA162</p>
+                    <p id="strip-clearance">Cleared to Edmonton via ABBOT6 departure...</p>
+                    <p class="strip__meta" id="strip-meta">Runway 08L • SID ABBOT6 • Initial 5000</p>
+                  </div>
+                </div>
+                <div class="scenario__panel">
+                  <h3>Suggested Phraseology</h3>
+                  <p id="scenario-phrase"></p>
+                  <button class="btn btn--ghost btn--sm" id="scenario-play">Play Phrase</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>
+          Training aid only. Examples inspired by common Vancouver (CYVR) operations and ICAO
+          phraseology. Not for real-world flight or ATC use.
+        </p>
+      </footer>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
