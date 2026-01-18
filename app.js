@@ -236,8 +236,18 @@ const initRecognition = () => {
       .join(" ");
     elements.sessionText.value = transcript.trim();
   };
+  recognition.onend = () => {
+    elements.sessionMic.textContent = "🎙️ Hold to Talk";
+    // Auto-score if in simulation mode
+    if (currentSession && elements.sessionText.value.trim()) {
+      setTimeout(() => {
+        scoreSessionReadback();
+      }, 500);
+    }
+  };
   recognition.onerror = () => {
     elements.sessionResult.textContent = "Microphone error. Try again or type your readback.";
+    elements.sessionMic.textContent = "🎙️ Hold to Talk";
   };
 };
 
@@ -342,6 +352,14 @@ const renderSessionStep = () => {
   elements.sessionText.value = "";
   elements.sessionResult.textContent = "";
   speak(currentSession.atc, 1.02);
+  
+  // Auto-listen after controller speaks
+  setTimeout(() => {
+    if (recognition) {
+      elements.sessionMic.textContent = "🎙️ Listening...";
+      recognition.start();
+    }
+  }, currentSession.atc.length * 60);
 };
 
 const scoreSessionReadback = () => {
@@ -372,6 +390,11 @@ const scoreSessionReadback = () => {
   `;
   elements.sessionTimeline.prepend(timelineItem);
   updateScore(grade.ok ? 2 : 0, !grade.ok);
+  
+  // Auto-continue to next instruction
+  setTimeout(() => {
+    nextSessionStep();
+  }, 3000);
 };
 
 const nextSessionStep = () => {
@@ -459,7 +482,6 @@ document.getElementById("readback-speak").addEventListener("click", () => {
   speak(elements.readbackText.value || "No readback entered.");
 });
 document.getElementById("session-start").addEventListener("click", buildSession);
-document.getElementById("session-next").addEventListener("click", nextSessionStep);
 document.getElementById("session-check").addEventListener("click", scoreSessionReadback);
 document.getElementById("session-clear").addEventListener("click", () => {
   elements.sessionText.value = "";

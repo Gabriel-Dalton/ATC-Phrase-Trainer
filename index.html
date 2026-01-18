@@ -149,27 +149,26 @@
             <section class="card" id="session">
               <div class="card__header">
                 <div>
-                  <p class="label">Controller Session</p>
-                  <h2 id="session-atc"></h2>
-                  <p class="muted">Callsign: <span id="session-callsign"></span></p>
+                  <p class="label">Live ATC Simulation</p>
+                  <h2 id="session-atc">Start a simulation to begin receiving clearances...</h2>
+                  <p class="muted">You are the pilot. Listen to the controller and respond with readbacks.</p>
                 </div>
                 <div class="card__actions">
-                  <button class="btn btn--primary" id="session-start">Start Session</button>
-                  <button class="btn btn--ghost" id="session-next">Next Instruction</button>
+                  <button class="btn btn--primary" id="session-start">🚀 Start Simulation</button>
                 </div>
               </div>
               <div class="session__grid">
                 <div class="session__panel">
                   <h3>Live Transcript</h3>
-                  <p class="muted">Speak your readback or type it below. The trainer will score it.</p>
+                  <p class="muted">The controller will speak to you. Listen carefully, then say or type your readback.</p>
                   <textarea
                     id="session-text"
-                    placeholder="Push-to-talk or type your readback here."
+                    placeholder="Your readback will appear here (spoken or typed)..."
                   ></textarea>
                   <div class="session__actions">
-                    <button class="btn btn--primary" id="session-check">Score Readback</button>
+                    <button class="btn btn--primary" id="session-mic">🎙️ Hold to Talk</button>
+                    <button class="btn btn--ghost" id="session-check">Submit Readback</button>
                     <button class="btn btn--ghost" id="session-clear">Clear</button>
-                    <button class="btn btn--ghost" id="session-mic">🎙️ Hold to Talk</button>
                   </div>
                   <div class="result" id="session-result"></div>
                 </div>
