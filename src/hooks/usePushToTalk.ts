@@ -9,6 +9,8 @@ export interface PushToTalk {
   statusDetail: string | null;
   keyed: boolean;
   enable: () => Promise<boolean>;
+  arm: () => void;
+  disarm: () => void;
   keyDown: () => void;
   keyUp: () => void;
 }
@@ -45,7 +47,7 @@ export function usePushToTalk({ onInterim, onFinal }: Options): PushToTalk {
     [],
   );
 
-  useEffect(() => () => capture.disable(), [capture]);
+  useEffect(() => () => capture.destroy(), [capture]);
 
   const keyDown = useCallback(() => {
     if (keyedRef.current) return;
@@ -88,12 +90,17 @@ export function usePushToTalk({ onInterim, onFinal }: Options): PushToTalk {
     };
   }, [keyDown, keyUp]);
 
+  const arm = useCallback(() => capture.arm(), [capture]);
+  const disarm = useCallback(() => capture.disarm(), [capture]);
+
   return {
     supported: capture.supported,
     status,
     statusDetail,
     keyed,
     enable: () => capture.enable(),
+    arm,
+    disarm,
     keyDown,
     keyUp,
   };

@@ -46,7 +46,7 @@ export interface GradeResult {
 
 export interface Aircraft {
   callsign: string;
-  kind: "player" | "arrival" | "departure";
+  kind: "player" | "arrival" | "departure" | "transit";
   player: boolean;
   /** position in nm, +x east, +y north, origin at CYVR */
   x: number;
@@ -131,6 +131,10 @@ export interface Feedback {
   verdict: Verdict;
   missed: string[];
   example: string;
+  /** points awarded for this readback (already multiplied) */
+  points: number;
+  /** short human breakdown, e.g. "readback correct · fast · streak ×1.5" */
+  note: string;
 }
 
 export type DifficultyKey = "rookie" | "fo" | "captain";
@@ -171,6 +175,7 @@ export interface SessionSnapshot {
   results: StepResult[];
   score: number;
   streak: number;
+  streakMultiplier: number;
   maxStreak: number;
   logs: LogEntry[];
 }

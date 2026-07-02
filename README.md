@@ -45,9 +45,15 @@ altimeter change every time.
 
 ## How to respond
 
-- **Hold SPACE** (or the mic button) to transmit, release to send. The mic
-  stays hot between transmissions so your first words are never clipped.
-- No microphone? **Type the readback and press Enter.**
+- **Hold SPACE** (or the mic button) to transmit, release to send. The mic is
+  armed the moment ATC finishes talking, so your first words are never clipped.
+- No microphone? **Type the readback and press Enter** — it plays identically.
+
+> **Voice needs a cloud speech service.** Chrome's `SpeechRecognition` streams
+> audio to Google's servers, so voice needs Chrome or Edge on a normal network
+> over HTTPS. **Brave and other privacy browsers disable that endpoint**, which
+> shows up as "voice unavailable" — type your readbacks there. The sim is fully
+> playable by typing.
 - Readbacks are graded on the items that legally matter: runways, altitudes,
   headings, frequencies, squawk codes, hold-short instructions, clearances.
   The grader understands radio phraseology — "niner", "tree", "decimal",
@@ -58,8 +64,19 @@ altimeter change every time.
 The radar is live: your aircraft flies what you read back (taxi, takeoff
 roll, vectors, ILS intercept, go-around) while ambient AI traffic moves
 around you. Coastline, compass rose, range rings, en-route fixes, velocity
-leaders, altitude-trend datablocks, hover/click target selection, and a
-range control.
+leaders, altitude-trend datablocks, and hover/click target selection.
+**Drag to pan, scroll or use the buttons to zoom, and recenter on CYVR.**
+
+## Scoring
+
+- **Score** is your total for the current flight. **XP** is the lifetime sum of
+  every flight's score, and it drives your **rank** (Student Pilot → Check
+  Airman) — the progress bar in the header fills toward the next rank.
+- Each correct readback is worth 100 points, plus a speed bonus (+30 fast,
+  +15 prompt). Consecutive correct readbacks build a **streak multiplier**
+  (×1.25 at 3, ×1.5 at 5, ×2 at 8), and difficulty multiplies on top (First
+  Officer ×1.5, Captain ×2). Every readback shows exactly how its points broke
+  down.
 
 ## Progression
 

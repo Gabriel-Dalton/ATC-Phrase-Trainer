@@ -113,14 +113,39 @@ export const MAP_FIXES: { name: string; x: number; y: number }[] = [
 
 export const RANKS: { xp: number; title: string }[] = [
   { xp: 0, title: "Student Pilot" },
-  { xp: 150, title: "Private Pilot" },
-  { xp: 400, title: "Commercial Pilot" },
-  { xp: 800, title: "First Officer" },
-  { xp: 1500, title: "Senior First Officer" },
-  { xp: 2500, title: "Captain" },
-  { xp: 4000, title: "Training Captain" },
-  { xp: 6000, title: "Check Airman" },
+  { xp: 2000, title: "Private Pilot" },
+  { xp: 5000, title: "Commercial Pilot" },
+  { xp: 10000, title: "First Officer" },
+  { xp: 18000, title: "Senior First Officer" },
+  { xp: 30000, title: "Captain" },
+  { xp: 48000, title: "Training Captain" },
+  { xp: 72000, title: "Check Airman" },
 ];
+
+export interface RankInfo {
+  title: string;
+  next: string | null;
+  /** fraction toward the next rank, 0..1 (1 when maxed) */
+  pct: number;
+  xp: number;
+  nextXp: number | null;
+}
+
+/** Resolve a lifetime-XP total into rank + progress toward the next rank. */
+export function rankInfo(xp: number): RankInfo {
+  let idx = 0;
+  for (let i = 0; i < RANKS.length; i++) if (xp >= RANKS[i].xp) idx = i;
+  const current = RANKS[idx];
+  const next = RANKS[idx + 1] ?? null;
+  const pct = next ? (xp - current.xp) / (next.xp - current.xp) : 1;
+  return {
+    title: current.title,
+    next: next?.title ?? null,
+    pct: Math.max(0, Math.min(1, pct)),
+    xp,
+    nextXp: next?.xp ?? null,
+  };
+}
 
 export const rand = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
 export const randInt = (min: number, max: number): number =>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Feedback, Frequency, Phase } from "../engine/types";
 import type { PushToTalk } from "../hooks/usePushToTalk";
 
@@ -25,20 +25,23 @@ const VERDICT_TEXT: Record<Feedback["verdict"], string> = {
   noresponse: "No response",
 };
 
-function micStatusText(ptt: PushToTalk, awaiting: boolean): { text: string; tone: string } {
+function tone(score: number): string {
+  return score >= 80 ? "good" : score >= 55 ? "partial" : "bad";
+}
+
+function micStatus(ptt: PushToTalk, awaiting: boolean): { text: string; cls: string } {
   switch (ptt.status) {
     case "unsupported":
-      return { text: "No speech recognition in this browser — type your readbacks", tone: "warn" };
+      return { text: "No speech recognition in this browser — type your readbacks", cls: "warn" };
     case "denied":
-      return { text: ptt.statusDetail ?? "Microphone blocked", tone: "warn" };
     case "error":
-      return { text: ptt.statusDetail ?? "Speech service error", tone: "warn" };
+      return { text: ptt.statusDetail ?? "Voice unavailable — type your readbacks", cls: "warn" };
     case "keyed":
-      return { text: "Transmitting — speak now", tone: "active" };
+      return { text: "Transmitting — speak now", cls: "active" };
     case "live":
-      return { text: awaiting ? "Mic ready — hold SPACE to respond" : "Mic ready", tone: "ready" };
+      return { text: awaiting ? "Mic ready — hold SPACE to respond" : "Mic ready", cls: "ready" };
     default:
-      return { text: "Mic idle", tone: "" };
+      return { text: awaiting ? "Type your readback, or hold to transmit" : "Standby", cls: "" };
   }
 }
 
@@ -46,11 +49,9 @@ export function CommsPanel({
   freq, phase, atcText, showAtcText, speaking, awaiting, feedback,
   ptt, draft, onDraft, onSubmit, onSayAgain,
 }: Props) {
-  const mic = micStatusText(ptt, awaiting);
-  const areaRef = useRef<HTMLTextAreaElement>(null);
+  const mic = micStatus(ptt, awaiting);
   const [flash, setFlash] = useState(false);
 
-  // brief highlight when feedback lands
   useEffect(() => {
     if (!feedback) return;
     setFlash(true);
@@ -58,11 +59,18 @@ export function CommsPanel({
     return () => clearTimeout(t);
   }, [feedback]);
 
-  const display = speaking && !showAtcText
-    ? "Incoming transmission — listen"
-    : atcText && !showAtcText && awaiting
-      ? "Respond with your readback (shown after grading)"
-      : atcText ?? "Start a flight to pick up your clearance.";
+  let display: string;
+  let displayCls = "";
+  if (showAtcText && atcText) {
+    display = atcText;
+  } else if (speaking) {
+    display = "Incoming transmission — listen.";
+  } else if (awaiting) {
+    display = ptt.keyed ? "Listening…" : "Respond with your readback.";
+    displayCls = ptt.keyed ? "listening" : "";
+  } else {
+    display = atcText ?? "Start a flight to pick up your clearance.";
+  }
 
   return (
     <section className="panel comms-panel">
@@ -74,16 +82,20 @@ export function CommsPanel({
         <div className="freq-mhz">{freq?.mhz ?? "---.--"}</div>
       </div>
 
-      <div className={`atc-display ${speaking ? "speaking" : ""}`}>
-        {showAtcText ? (atcText ?? display) : display}
-      </div>
+      <div className={`atc-display ${speaking ? "speaking" : ""} ${displayCls}`}>{display}</div>
 
       <div className={`feedback ${flash ? "flash" : ""}`}>
         {feedback && (
           <>
-            <div className={`feedback-verdict ${feedback.score >= 80 ? "good" : feedback.score >= 55 ? "partial" : "bad"}`}>
-              {VERDICT_TEXT[feedback.verdict]} — {feedback.score}%
+            <div className="feedback-head">
+              <span className={`feedback-verdict ${tone(feedback.score)}`}>
+                {VERDICT_TEXT[feedback.verdict]} — {feedback.score}%
+              </span>
+              {feedback.points > 0 && (
+                <span className={`feedback-points ${tone(feedback.score)}`}>+{feedback.points}</span>
+              )}
             </div>
+            {feedback.note && <div className="feedback-note">{feedback.note}</div>}
             {feedback.missed.length > 0 && (
               <div className="feedback-missed">Missed: {feedback.missed.join(" · ")}</div>
             )}
@@ -96,7 +108,7 @@ export function CommsPanel({
         <button
           type="button"
           className={`btn btn-ptt ${ptt.keyed ? "keyed" : ""}`}
-          disabled={ptt.status === "unsupported" || ptt.status === "denied"}
+          disabled={ptt.status === "unsupported" || ptt.status === "denied" || ptt.status === "error"}
           onPointerDown={(e) => {
             e.preventDefault();
             ptt.keyDown();
@@ -114,11 +126,10 @@ export function CommsPanel({
           </svg>
           {ptt.keyed ? "Transmitting…" : "Hold to transmit"}
         </button>
-        <span className={`mic-status ${mic.tone}`}>{mic.text}</span>
+        <span className={`mic-status ${mic.cls}`}>{mic.text}</span>
       </div>
 
       <textarea
-        ref={areaRef}
         className="readback-area"
         placeholder="Your readback appears here as you speak — or type it and press Enter."
         value={draft}

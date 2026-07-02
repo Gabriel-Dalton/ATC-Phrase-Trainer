@@ -3,24 +3,25 @@ import { MAP_FIXES } from "../engine/data";
 import { RUNWAYS, headingVector, world } from "../engine/world";
 import type { Aircraft } from "../engine/types";
 
-// Canvas radar display. The world simulation ticks here (single rAF loop
-// drives both physics and paint), everything else only reads world state.
+// Canvas radar display. The world simulation ticks here (a single rAF loop
+// drives both physics and paint); everything else only reads world state.
+// The view supports drag-to-pan, wheel/button zoom, and recenter.
 
 const COLORS = {
-  bg: "#0b0e13",
-  water: "#0d131c",
-  coast: "#1d2836",
-  ring: "rgba(220, 227, 234, 0.06)",
-  ringLabel: "rgba(151, 161, 173, 0.5)",
-  compass: "rgba(151, 161, 173, 0.35)",
-  runway: "#7d8895",
-  centreline: "rgba(76, 144, 240, 0.28)",
-  fix: "rgba(151, 161, 173, 0.55)",
-  ai: "#93a1b0",
-  aiTrail: "rgba(147, 161, 176, 0.28)",
-  player: "#6aa5f5",
-  playerTrail: "rgba(106, 165, 245, 0.35)",
-  selected: "#e8edf3",
+  bg: "#080c12",
+  water: "#0b111b",
+  coast: "#1e2a3a",
+  ring: "rgba(230, 234, 240, 0.055)",
+  ringLabel: "rgba(95, 178, 198, 0.5)",
+  compass: "rgba(166, 176, 189, 0.32)",
+  runway: "#8a97a6",
+  centreline: "rgba(95, 178, 198, 0.3)",
+  fix: "rgba(95, 178, 198, 0.55)",
+  ai: "#7fa9b8",
+  aiTrail: "rgba(127, 169, 184, 0.28)",
+  player: "#f2a950",
+  playerTrail: "rgba(242, 169, 80, 0.4)",
+  selected: "#e6eaf0",
 };
 
 // Stylized Strait of Georgia shoreline, in nm around CYVR (decorative).
@@ -28,6 +29,8 @@ const COASTLINE: [number, number][] = [
   [-30, 30], [-9, 30], [-11, 22], [-7, 16], [-10, 10], [-5, 4],
   [-7, -2], [-3, -8], [-6, -14], [-2, -20], [-5, -26], [-3, -30], [-30, -30],
 ];
+
+const DRAG_THRESHOLD = 5; // px of movement before a press counts as a pan
 
 interface Props {
   overlay: { time: string; flow: string; wind: string; atis: string };
@@ -39,10 +42,17 @@ export function RadarScope({ overlay }: Props) {
   const [range, setRange] = useState(26); // nm half-width
   const rangeRef = useRef(range);
   rangeRef.current = range;
+
+  // camera center offset from the field, in nm
+  const camRef = useRef({ x: 0, y: 0 });
   const hoverRef = useRef<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selected;
+
+  const recenter = () => {
+    camRef.current = { x: 0, y: 0 };
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -65,19 +75,26 @@ export function RadarScope({ overlay }: Props) {
       const w = canvas.width;
       const h = canvas.height;
       const scale = Math.min(w, h) / 2 / rangeRef.current;
+      const cam = camRef.current;
       return {
         w, h, scale,
-        px: (x: number) => w / 2 + x * scale,
-        py: (y: number) => h / 2 - y * scale,
+        px: (x: number) => w / 2 + (x - cam.x) * scale,
+        py: (y: number) => h / 2 - (y - cam.y) * scale,
       };
     };
 
-    const onPointerMove = (e: PointerEvent) => {
+    // ---- pointer: pan (drag) vs select (click) ----
+    const drag = { active: false, moved: false, startX: 0, startY: 0, camX: 0, camY: 0 };
+
+    const localXY = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      const mx = (e.clientX - rect.left) * dpr;
-      const my = (e.clientY - rect.top) * dpr;
+      return { x: (e.clientX - rect.left) * dpr, y: (e.clientY - rect.top) * dpr };
+    };
+
+    const nearestCallsign = (mx: number, my: number): string | null => {
       const { px, py } = project();
+      const dpr = window.devicePixelRatio || 1;
       let best: string | null = null;
       let bestDist = 14 * dpr;
       for (const ac of world.aircraft) {
@@ -87,14 +104,62 @@ export function RadarScope({ overlay }: Props) {
           best = ac.callsign;
         }
       }
-      hoverRef.current = best;
-      canvas.style.cursor = best ? "pointer" : "default";
+      return best;
     };
-    const onClick = () => {
-      setSelected(hoverRef.current);
+
+    const onPointerDown = (e: PointerEvent) => {
+      const { x, y } = localXY(e);
+      drag.active = true;
+      drag.moved = false;
+      drag.startX = x;
+      drag.startY = y;
+      drag.camX = camRef.current.x;
+      drag.camY = camRef.current.y;
+      canvas.setPointerCapture(e.pointerId);
     };
+
+    const onPointerMove = (e: PointerEvent) => {
+      const { x, y } = localXY(e);
+      if (drag.active) {
+        const dx = x - drag.startX;
+        const dy = y - drag.startY;
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) drag.moved = true;
+        if (drag.moved) {
+          const { scale } = project();
+          camRef.current = { x: drag.camX - dx / scale, y: drag.camY + dy / scale };
+          canvas.style.cursor = "grabbing";
+        }
+        return;
+      }
+      hoverRef.current = nearestCallsign(x, y);
+      canvas.style.cursor = hoverRef.current ? "pointer" : "grab";
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (drag.active && !drag.moved) {
+        const { x, y } = localXY(e);
+        setSelected(nearestCallsign(x, y));
+      }
+      drag.active = false;
+      canvas.style.cursor = "grab";
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch {
+        /* not captured */
+      }
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const dir = e.deltaY > 0 ? 1 : -1;
+      setRange((r) => Math.max(8, Math.min(46, r + dir * 3)));
+    };
+
+    canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("pointermove", onPointerMove);
-    canvas.addEventListener("click", onClick);
+    canvas.addEventListener("pointerup", onPointerUp);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.style.cursor = "grab";
 
     const drawTarget = (p: ReturnType<typeof project>, ac: Aircraft, dpr: number) => {
       const X = p.px(ac.x);
@@ -127,7 +192,7 @@ export function RadarScope({ overlay }: Props) {
       ctx.save();
       ctx.translate(X, Y);
       if (ac.player) {
-        ctx.rotate(((ac.hdg - 0) * Math.PI) / 180);
+        ctx.rotate((ac.hdg * Math.PI) / 180);
         const s = 6 * dpr;
         ctx.fillStyle = color;
         ctx.beginPath();
@@ -177,7 +242,7 @@ export function RadarScope({ overlay }: Props) {
       const p = project();
       const { w, h, scale, px, py } = p;
       const dpr = window.devicePixelRatio || 1;
-      const range = rangeRef.current;
+      const rng = rangeRef.current;
 
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = COLORS.bg;
@@ -186,28 +251,22 @@ export function RadarScope({ overlay }: Props) {
       // water / coastline
       ctx.fillStyle = COLORS.water;
       ctx.beginPath();
-      COASTLINE.forEach(([x, y], i) => {
-        if (i === 0) ctx.moveTo(px(x), py(y));
-        else ctx.lineTo(px(x), py(y));
-      });
+      COASTLINE.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(px(x), py(y)) : ctx.lineTo(px(x), py(y))));
       ctx.closePath();
       ctx.fill();
       ctx.strokeStyle = COLORS.coast;
       ctx.lineWidth = 1.2 * dpr;
       ctx.beginPath();
-      COASTLINE.slice(1, -1).forEach(([x, y], i) => {
-        if (i === 0) ctx.moveTo(px(x), py(y));
-        else ctx.lineTo(px(x), py(y));
-      });
+      COASTLINE.slice(1, -1).forEach(([x, y], i) => (i === 0 ? ctx.moveTo(px(x), py(y)) : ctx.lineTo(px(x), py(y))));
       ctx.stroke();
       ctx.fillStyle = "rgba(151, 161, 173, 0.28)";
       ctx.font = `${10 * dpr}px 'Inter Variable', system-ui, sans-serif`;
       ctx.fillText("STRAIT OF GEORGIA", px(-24), py(-8));
 
-      // range rings
+      // range rings (centered on the field, which pans with the camera)
       ctx.lineWidth = 1;
       ctx.font = `${9.5 * dpr}px 'Inter Variable', system-ui, sans-serif`;
-      for (let r = 5; r <= range; r += 5) {
+      for (let r = 5; r <= rng + Math.hypot(camRef.current.x, camRef.current.y); r += 5) {
         ctx.strokeStyle = COLORS.ring;
         ctx.beginPath();
         ctx.arc(px(0), py(0), r * scale, 0, Math.PI * 2);
@@ -216,7 +275,7 @@ export function RadarScope({ overlay }: Props) {
         ctx.fillText(`${r}`, px(0) + 3 * dpr, py(r) - 3 * dpr);
       }
 
-      // compass ticks every 10°, labels every 30°
+      // compass rose fixed to the viewport edge
       const cR = Math.min(w, h) / 2 - 6 * dpr;
       ctx.strokeStyle = COLORS.compass;
       ctx.fillStyle = COLORS.compass;
@@ -270,13 +329,13 @@ export function RadarScope({ overlay }: Props) {
       ctx.font = `${10 * dpr}px 'Inter Variable', system-ui, sans-serif`;
       ctx.fillText("CYVR", px(0.4), py(-1.0));
 
-      // fixes
+      // en-route fixes
       ctx.strokeStyle = COLORS.fix;
       ctx.fillStyle = COLORS.fix;
       for (const fix of MAP_FIXES) {
-        if (Math.abs(fix.x) > range || Math.abs(fix.y) > range) continue;
         const fx = px(fix.x);
         const fy = py(fix.y);
+        if (fx < -20 || fx > w + 20 || fy < -20 || fy > h + 20) continue;
         const s = 4 * dpr;
         ctx.beginPath();
         ctx.moveTo(fx, fy - s);
@@ -287,7 +346,6 @@ export function RadarScope({ overlay }: Props) {
         ctx.fillText(fix.name, fx + 7 * dpr, fy + 3 * dpr);
       }
 
-      // aircraft
       for (const ac of world.aircraft) drawTarget(p, ac, dpr);
     };
 
@@ -304,8 +362,10 @@ export function RadarScope({ overlay }: Props) {
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
-      canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("wheel", onWheel);
     };
   }, []);
 
@@ -318,22 +378,12 @@ export function RadarScope({ overlay }: Props) {
         <span>{overlay.wind}</span>
         <span>{overlay.atis}</span>
       </div>
+      <div className="radar-hint">Drag to pan · scroll to zoom · click a target</div>
       <div className="radar-controls">
-        <button
-          type="button"
-          aria-label="Zoom in"
-          onClick={() => setRange((r) => Math.max(10, r - 8))}
-        >
-          +
-        </button>
-        <span>{range} NM</span>
-        <button
-          type="button"
-          aria-label="Zoom out"
-          onClick={() => setRange((r) => Math.min(42, r + 8))}
-        >
-          −
-        </button>
+        <button type="button" aria-label="Zoom in" onClick={() => setRange((r) => Math.max(8, r - 6))}>+</button>
+        <span className="radar-range">{range} NM</span>
+        <button type="button" aria-label="Zoom out" onClick={() => setRange((r) => Math.min(46, r + 6))}>&minus;</button>
+        <button type="button" aria-label="Recenter" title="Recenter on CYVR" onClick={recenter}>&#8982;</button>
       </div>
     </div>
   );

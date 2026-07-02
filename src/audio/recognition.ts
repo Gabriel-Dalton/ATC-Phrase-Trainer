@@ -1,26 +1,32 @@
 // Push-to-talk speech capture.
 //
-// The naive approach — recognition.start() on key-down — clips the first
-// words, because the engine takes up to a second to begin capturing.
-// Instead we keep one continuous recognition session hot for the whole
-// flight (auto-restarting whenever the browser ends it) and use the PTT
-// key only to GATE which results we keep:
+// Two problems shaped this design:
 //
-//   keyDown()  -> remember how many results the session has delivered;
-//                 everything after that boundary belongs to this transmission
-//   keyUp()    -> stop accepting new speech, wait a short grace period for
-//                 the recognizer to finalize, then emit the transcript
+//  1. Clipping — starting recognition on key-down loses the first ~0.5-1s
+//     of audio (exactly when the callsign is spoken), because the engine
+//     takes time to spin up.
+//  2. Retry storms — a permanently-hot continuous session that we restart
+//     on every `onend` hammers the (cloud) speech backend; if the backend
+//     is unreachable it produces an endless stream of `network` errors.
 //
-// Microphone permission is requested explicitly up front so a denial is a
-// visible state, not a silent failure.
+// So recognition is *armed on demand*: the app arms it when a response
+// window opens (ATC finished talking) and disarms it when the window
+// closes. Within a window one session stays live, so by the time the pilot
+// keys the mic it is already warm — no clipping — and sessions only run
+// during the handful of response windows in a flight, not the whole time.
+// The PTT key gates which recognition results count toward the readback.
+//
+// Chrome's SpeechRecognition is cloud-based; on Brave / privacy browsers /
+// blocked networks it fails with `network`. We surface that as a clear,
+// non-spammy state and fall back to typing.
 
 export type CaptureStatus =
   | "unsupported"
-  | "idle"       // not enabled yet
-  | "live"       // hot mic session running, not keyed
+  | "idle"       // enabled but no window open
+  | "live"       // armed, session running, not keyed
   | "keyed"      // PTT held, capturing
   | "denied"     // mic permission refused
-  | "error";
+  | "error";     // speech backend unreachable
 
 export interface CaptureEvents {
   onStatus?: (status: CaptureStatus, detail?: string) => void;
@@ -28,23 +34,29 @@ export interface CaptureEvents {
   onFinal?: (text: string) => void;
 }
 
-const GRACE_MS = 1100;
-const DENIED_MSG = "Microphone access denied — allow it in the browser and reload, or type your readbacks.";
+const GRACE_MS = 1000;
+const MAX_NETWORK_ERRORS = 3;
+const DENIED_MSG = "Microphone blocked — allow it in the browser and reload, or just type your readbacks.";
+const NETWORK_MSG =
+  "Voice unavailable — your browser's speech service is unreachable (common on Brave / privacy browsers). Type your readbacks and press Enter.";
 
 export class SpeechCapture {
   readonly supported: boolean;
 
   private events: CaptureEvents;
   private rec: SpeechRecognition | null = null;
-  private enabled = false;
+  private enabled = false;   // permission granted, capture allowed
+  private armed = false;     // a response window is open
   private running = false;
   private starting = false;
   private keyed = false;
   private inGrace = false;
-  private boundary = 0;     // result index where the current transmission starts
-  private resultCount = 0;  // results delivered so far in the current session
-  private carried = "";     // transcript carried across browser session restarts
-  private latest = "";      // most recent full transcript for this transmission
+  private gaveUp = false;     // backend declared unreachable
+  private networkErrors = 0;
+  private boundary = 0;       // result index where this transmission starts
+  private resultCount = 0;
+  private carried = "";       // transcript kept across session restarts
+  private latest = "";        // most recent transcript for this transmission
   private graceTimer: ReturnType<typeof setTimeout> | null = null;
   private status: CaptureStatus = "idle";
 
@@ -65,10 +77,9 @@ export class SpeechCapture {
 
   /** Must be called from a user gesture so the permission prompt can show. */
   async enable(): Promise<boolean> {
-    if (!this.supported) return false;
+    if (!this.supported || this.gaveUp) return false;
     if (this.enabled) return true;
     try {
-      // Explicit permission preflight — otherwise recognition fails silently.
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((t) => t.stop());
     } catch {
@@ -76,30 +87,30 @@ export class SpeechCapture {
       return false;
     }
     this.enabled = true;
-    this.startSession();
+    this.setStatus("idle");
     return true;
   }
 
-  disable(): void {
-    this.enabled = false;
-    this.keyed = false;
-    this.inGrace = false;
-    if (this.graceTimer) clearTimeout(this.graceTimer);
-    if (this.rec) {
-      try {
-        this.rec.abort();
-      } catch {
-        /* already stopped */
-      }
-    }
-    this.rec = null;
-    this.running = false;
-    this.setStatus("idle");
+  /** Open a response window: warm up a session so the mic is ready. */
+  arm(): void {
+    if (!this.enabled || this.gaveUp) return;
+    this.armed = true;
+    this.startSession();
+    if (this.status === "idle") this.setStatus("live");
+  }
+
+  /** Close the response window: stop listening. */
+  disarm(): void {
+    this.armed = false;
+    if (this.keyed || this.inGrace) return; // let an in-flight transmission finish
+    this.stopSession();
+    if (this.enabled && !this.gaveUp) this.setStatus("idle");
   }
 
   keyDown(): void {
-    if (!this.enabled) return;
+    if (!this.enabled || this.gaveUp) return;
     if (this.graceTimer) clearTimeout(this.graceTimer);
+    if (!this.running) this.startSession(); // safety: warm if arm() was missed
     this.carried = "";
     this.latest = "";
     this.boundary = this.resultCount;
@@ -113,7 +124,6 @@ export class SpeechCapture {
     this.keyed = false;
     this.inGrace = true;
     this.setStatus("live");
-    // give the recognizer a moment to finalize the tail of the transmission
     this.graceTimer = setTimeout(() => this.finishTransmission(), GRACE_MS);
   }
 
@@ -125,10 +135,23 @@ export class SpeechCapture {
     this.carried = "";
     this.latest = "";
     this.events.onFinal?.(text);
+    if (!this.armed) this.disarm(); // window closed while we were finishing
+  }
+
+  private stopSession(): void {
+    if (this.rec) {
+      try {
+        this.rec.abort();
+      } catch {
+        /* already stopped */
+      }
+    }
+    this.rec = null;
+    this.running = false;
   }
 
   private startSession(): void {
-    if (!this.enabled || this.running || this.starting) return;
+    if (!this.enabled || this.gaveUp || this.running || this.starting) return;
     const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!Ctor) return;
 
@@ -143,14 +166,12 @@ export class SpeechCapture {
       this.starting = false;
       this.running = true;
       this.resultCount = 0;
-      // if the session restarted mid-transmission, keep what we already
-      // heard and accept everything the new session delivers
-      this.boundary = 0;
-      if (!this.keyed && !this.inGrace) this.setStatus("live");
+      this.boundary = 0; // accept everything a fresh session hears
     };
 
     rec.onresult = (ev) => {
       this.resultCount = ev.results.length;
+      this.networkErrors = 0; // a result means the backend is reachable
       if (!this.keyed && !this.inGrace) return;
 
       let text = this.carried;
@@ -162,7 +183,6 @@ export class SpeechCapture {
       this.latest = text.trim();
       this.events.onInterim?.(this.latest);
 
-      // a finalized tail arrived during the grace window — emit early
       if (this.inGrace && allFinal && ev.results.length > this.boundary) {
         this.finishTransmission();
       }
@@ -176,20 +196,23 @@ export class SpeechCapture {
         return;
       }
       if (ev.error === "network") {
-        this.setStatus("error", "Speech service unreachable — you can still type readbacks.");
+        this.networkErrors++;
+        if (this.networkErrors >= MAX_NETWORK_ERRORS) {
+          this.gaveUp = true;
+          this.setStatus("error", NETWORK_MSG);
+        }
       }
-      // 'no-speech' / 'aborted' are routine; onend restarts the session
+      // 'no-speech' / 'aborted' are routine; onend decides whether to restart
     };
 
     rec.onend = () => {
       this.running = false;
-      // preserve transcript if the browser ended the session mid-transmission
       if (this.keyed || this.inGrace) {
-        this.carried = this.latest;
-        this.boundary = 0;
+        this.carried = this.latest; // preserve across a mid-transmission restart
       }
-      if (this.enabled) {
-        setTimeout(() => this.startSession(), 150);
+      // only restart while a window is genuinely open and the backend is alive
+      if (this.armed && this.enabled && !this.gaveUp) {
+        setTimeout(() => this.startSession(), 250);
       }
     };
 
@@ -199,5 +222,14 @@ export class SpeechCapture {
     } catch {
       this.starting = false; // start() while already running — harmless
     }
+  }
+
+  destroy(): void {
+    this.armed = false;
+    this.enabled = false;
+    this.keyed = false;
+    this.inGrace = false;
+    if (this.graceTimer) clearTimeout(this.graceTimer);
+    this.stopSession();
   }
 }

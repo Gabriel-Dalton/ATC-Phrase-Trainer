@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ensureAudioContext, fxSettings } from "./audio/radioFx";
 import { tts } from "./audio/tts";
-import { RANKS } from "./engine/data";
 import { DIFFICULTIES, session } from "./engine/session";
 import { world } from "./engine/world";
 import type { SessionSettings } from "./engine/types";
@@ -9,7 +8,8 @@ import { useLocalStorage } from "./hooks/useLocalStorage";
 import { usePushToTalk } from "./hooks/usePushToTalk";
 import { useSession } from "./hooks/useSession";
 import { CommsPanel } from "./components/CommsPanel";
-import { DebriefOverlay, StartOverlay } from "./components/Overlays";
+import { DebriefOverlay } from "./components/Overlays";
+import { Landing } from "./components/Landing";
 import { RadarScope } from "./components/RadarScope";
 import { SidePanel } from "./components/SidePanel";
 import { TopBar } from "./components/TopBar";
@@ -18,12 +18,6 @@ interface Stats {
   xp: number;
   flights: number;
   bestStreak: number;
-}
-
-function rankFor(xp: number): string {
-  let title = RANKS[0].title;
-  for (const r of RANKS) if (xp >= r.xp) title = r.title;
-  return title;
 }
 
 export default function App() {
@@ -49,8 +43,9 @@ export default function App() {
     tts.settings.rate = DIFFICULTIES[settings.difficulty].speechRate;
   }, [settings]);
 
-  // ambient AI traffic radio calls
+  // ambient traffic: seed the scope once, and voice AI calls
   useEffect(() => {
+    world.seed();
     world.onAmbient = (ev) => session.ambientCall(ev.kind, ev.tag, ev.radio);
     return () => {
       world.onAmbient = null;
@@ -96,13 +91,19 @@ export default function App() {
     onFinal: (text) => {
       if (text) {
         setDraft(text);
-        // small beat so the pilot sees what was captured before grading
         setTimeout(() => submit(text), 300);
       }
     },
   });
 
-  const startFlight = useCallback(async () => {
+  // arm the mic only while a response window is open
+  const { arm, disarm } = ptt;
+  useEffect(() => {
+    if (snapshot.awaiting) arm();
+    else disarm();
+  }, [snapshot.awaiting, arm, disarm]);
+
+  const startFlight = useCallback(() => {
     ensureAudioContext();
     setDraft("");
     if (ptt.supported) void ptt.enable();
@@ -121,13 +122,20 @@ export default function App() {
   const flight = snapshot.flight;
   const showAtcText = DIFFICULTIES[settings.difficulty].showText || !!snapshot.feedback;
 
+  const micNote = !ptt.supported
+    ? "Voice needs the Web Speech API — use Chrome or Edge, or just type your readbacks here."
+    : ptt.status === "denied" || ptt.status === "error"
+      ? ptt.statusDetail
+      : "Voice uses your browser's speech recognition (best in Chrome/Edge). No mic? Type your readbacks — it plays exactly the same.";
+  const micWarn = !ptt.supported || ptt.status === "denied" || ptt.status === "error";
+
   return (
     <div className="app">
       <TopBar
         score={snapshot.score}
         streak={snapshot.streak}
+        streakMultiplier={snapshot.streakMultiplier}
         stats={stats}
-        rank={rankFor(stats.xp)}
         settings={settings}
         onSettings={(next) => setSettings((prev) => ({ ...prev, ...next }))}
       />
@@ -137,7 +145,7 @@ export default function App() {
           <RadarScope
             overlay={{
               time: clock,
-              flow: flight?.flow.label ?? "EAST FLOW",
+              flow: flight?.flow.label ?? world.flow.label,
               wind: flight ? `${String(flight.windDir).padStart(3, "0")}° / ${flight.windKt} kt` : "---° / -- kt",
               atis: flight ? `INFO ${flight.atisLetter}` : "INFO —",
             }}
@@ -172,25 +180,16 @@ export default function App() {
       </footer>
 
       {snapshot.status === "idle" && (
-        <StartOverlay
+        <Landing
+          settings={settings}
+          onSettings={(next) => setSettings((prev) => ({ ...prev, ...next }))}
           onStart={startFlight}
-          micNote={
-            !ptt.supported
-              ? "This browser has no speech recognition — use Chrome or Edge for voice, or type your readbacks."
-              : ptt.status === "denied"
-                ? (ptt.statusDetail ?? null)
-                : null
-          }
+          micNote={micNote}
+          micWarn={micWarn}
         />
       )}
       {snapshot.status === "debrief" && (
-        <DebriefOverlay
-          snapshot={snapshot}
-          xp={stats.xp}
-          rank={rankFor(stats.xp)}
-          bestStreak={stats.bestStreak}
-          onNewFlight={startFlight}
-        />
+        <DebriefOverlay snapshot={snapshot} xp={stats.xp} bestStreak={stats.bestStreak} onNewFlight={startFlight} />
       )}
     </div>
   );

@@ -44,8 +44,8 @@ export class SimWorld {
   flow: Flow = FLOWS.east;
   onAmbient: ((ev: AmbientEvent) => void) | null = null;
 
-  private arrivalTimer = 15;
-  private departureTimer = 50;
+  private arrivalTimer = 8;
+  private departureTimer = 22;
 
   spawn(props: Partial<Aircraft>): Aircraft {
     const ac: Aircraft = {
@@ -213,16 +213,45 @@ export class SimWorld {
 
   private historyTimer = 0;
 
+  /** High-altitude traffic transiting the sector (no runway interaction). */
+  private spawnCruiser() {
+    const cs = this.aiCallsign();
+    const edge = randInt(0, 359);
+    const from = headingVector(edge);
+    const dist = randInt(18, 27);
+    // aim roughly across the scope, offset from a straight-through track
+    const track = (edge + 180 + randInt(-45, 45) + 360) % 360;
+    this.spawn({
+      callsign: cs.tag,
+      kind: "transit",
+      onGround: false,
+      x: from.x * dist,
+      y: from.y * dist,
+      hdg: track,
+      gs: randInt(360, 460),
+      alt: randInt(24, 38) * 1000,
+      climbRate: 0,
+    });
+  }
+
+  /** Populate the scope with initial traffic so it never opens empty. */
+  seed() {
+    for (let i = 0; i < 4; i++) this.spawnCruiser();
+    this.spawnAiArrival();
+    this.spawnAiArrival();
+    this.spawnAiDeparture();
+  }
+
   tick(dt: number) {
     this.arrivalTimer -= dt;
     this.departureTimer -= dt;
     if (this.arrivalTimer <= 0) {
-      this.spawnAiArrival();
-      this.arrivalTimer = randInt(75, 130);
+      Math.random() < 0.35 ? this.spawnCruiser() : this.spawnAiArrival();
+      this.arrivalTimer = randInt(28, 60);
     }
     if (this.departureTimer <= 0) {
       this.spawnAiDeparture();
-      this.departureTimer = randInt(95, 160);
+      this.departureTimer = randInt(45, 85);
     }
 
     for (const ac of this.aircraft) {

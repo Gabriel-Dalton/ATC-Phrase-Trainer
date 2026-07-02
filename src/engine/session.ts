@@ -86,9 +86,18 @@ export class FlightSession {
       results: [],
       score: 0,
       streak: 0,
+      streakMultiplier: 1,
       maxStreak: 0,
       logs: [],
     };
+  }
+
+  /** Consecutive-correct streak → score multiplier. */
+  private static streakMult(streak: number): number {
+    if (streak >= 8) return 2;
+    if (streak >= 5) return 1.5;
+    if (streak >= 3) return 1.25;
+    return 1;
   }
 
   // ---- store interface ----
@@ -225,11 +234,14 @@ export class FlightSession {
         this.patch({
           awaiting: false,
           streak: 0,
+          streakMultiplier: 1,
           feedback: {
             score: 0,
             verdict: "noresponse",
             missed: step.elements.map((e) => e.label),
             example: step.example,
+            points: 0,
+            note: "no response — streak reset",
           },
         });
         this.scheduleNextStep(step.delayAfterMs ?? 4000);
@@ -260,7 +272,14 @@ export class FlightSession {
       this.patch({
         awaiting: false,
         attempts: 1,
-        feedback: { score: grade.score, verdict: "retry", missed: grade.missed, example: step.example },
+        feedback: {
+          score: grade.score,
+          verdict: "retry",
+          missed: grade.missed,
+          example: step.example,
+          points: 0,
+          note: "listen for the correction",
+        },
       });
       const correction = `${this.snapshot.flight!.radio}, negative. I say again: ${step.atc}`;
       this.log("ATC", correction, "atc");
@@ -276,32 +295,47 @@ export class FlightSession {
     }
 
     // final grading for this step
-    let points = 0;
+    const streak = grade.ok ? this.snapshot.streak + 1 : 0;
+    const streakMult = grade.ok ? FlightSession.streakMult(streak) : 1;
+    const notes: string[] = [];
+    let base = 0;
     if (grade.ok) {
-      points = 10;
       if (this.attempts === 0) {
-        if (responseSec <= 6) points += 3;
-        else if (responseSec <= 12) points += 1;
+        base = 100;
+        notes.push("readback correct");
+        if (responseSec <= 6) {
+          base += 30;
+          notes.push("fast +30");
+        } else if (responseSec <= 12) {
+          base += 15;
+          notes.push("prompt +15");
+        }
       } else {
-        points = 6;
+        base = 60;
+        notes.push("corrected");
       }
     } else {
-      points = Math.round(grade.score / 12);
+      base = Math.round(grade.score / 2);
+      notes.push(grade.partial ? "partial readback" : "readback incorrect");
     }
-    points = Math.round(points * diff.multiplier);
+    if (streakMult > 1) notes.push(`streak ×${streakMult}`);
+    if (diff.multiplier > 1) notes.push(`${diff.label} ×${diff.multiplier}`);
+    const points = Math.round(base * streakMult * diff.multiplier);
 
-    const streak = grade.ok ? this.snapshot.streak + 1 : 0;
     this.recordResult(step, text, grade.score, grade.missed, points);
     this.patch({
       awaiting: false,
       score: this.snapshot.score + points,
       streak,
+      streakMultiplier: grade.ok ? streakMult : 1,
       maxStreak: Math.max(this.snapshot.maxStreak, streak),
       feedback: {
         score: grade.score,
         verdict: grade.ok ? "correct" : grade.partial ? "partial" : "incorrect",
         missed: grade.missed,
         example: step.example,
+        points,
+        note: notes.join(" · "),
       },
     });
 

@@ -1,4 +1,5 @@
 import { DIFFICULTIES } from "../engine/session";
+import { rankInfo } from "../engine/data";
 import type { SessionSettings } from "../engine/types";
 
 interface Stats {
@@ -10,20 +11,24 @@ interface Stats {
 interface Props {
   score: number;
   streak: number;
+  streakMultiplier: number;
   stats: Stats;
-  rank: string;
   settings: SessionSettings;
   onSettings: (next: Partial<SessionSettings>) => void;
 }
 
-export function TopBar({ score, streak, stats, rank, settings, onSettings }: Props) {
+export function TopBar({ score, streak, streakMultiplier, stats, settings, onSettings }: Props) {
+  const rank = rankInfo(stats.xp);
+
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="brand-badge">CYVR</span>
+        <span className="brand-badge">
+          <span className="glyph">◈</span> CYVR
+        </span>
         <div>
           <h1>ATC Sim</h1>
-          <p className="brand-sub">Vancouver Terminal — Radio Simulation</p>
+          <p className="brand-sub">Vancouver Terminal · Radio Simulation</p>
         </div>
       </div>
 
@@ -34,15 +39,21 @@ export function TopBar({ score, streak, stats, rank, settings, onSettings }: Pro
         </div>
         <div className="stat">
           <span className="stat-label">Streak</span>
-          <span className="stat-value">{streak}</span>
+          <span className="stat-value streak-value">
+            {streak}
+            {streakMultiplier > 1 && <span className="streak-mult">×{streakMultiplier}</span>}
+          </span>
         </div>
-        <div className="stat">
-          <span className="stat-label">XP</span>
-          <span className="stat-value">{stats.xp}</span>
-        </div>
-        <div className="stat stat-rank">
-          <span className="stat-label">Rank</span>
-          <span className="stat-value">{rank}</span>
+        <div className="rank" title={`${stats.xp} XP total · ${stats.flights} flights`}>
+          <div className="rank-head">
+            <span className="rank-title">{rank.title}</span>
+            <span className="rank-xp">
+              {rank.next ? `${stats.xp} / ${rank.nextXp} XP` : `${stats.xp} XP · maxed`}
+            </span>
+          </div>
+          <div className="rank-bar">
+            <div className="rank-fill" style={{ width: `${Math.round(rank.pct * 100)}%` }} />
+          </div>
         </div>
       </div>
 
@@ -72,19 +83,11 @@ export function TopBar({ score, streak, stats, rank, settings, onSettings }: Pro
           </select>
         </label>
         <label className="check">
-          <input
-            type="checkbox"
-            checked={settings.chatter}
-            onChange={(e) => onSettings({ chatter: e.target.checked })}
-          />
+          <input type="checkbox" checked={settings.chatter} onChange={(e) => onSettings({ chatter: e.target.checked })} />
           Chatter
         </label>
         <label className="check">
-          <input
-            type="checkbox"
-            checked={settings.radioFx}
-            onChange={(e) => onSettings({ radioFx: e.target.checked })}
-          />
+          <input type="checkbox" checked={settings.radioFx} onChange={(e) => onSettings({ radioFx: e.target.checked })} />
           Radio FX
         </label>
       </div>
