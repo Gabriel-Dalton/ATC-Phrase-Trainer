@@ -229,14 +229,14 @@ const Radar = (() => {
     const py = (y) => h / 2 - y * scale;
 
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "#04070d";
+    ctx.fillStyle = "#0b0e13";
     ctx.fillRect(0, 0, w, h);
 
     // range rings
-    ctx.strokeStyle = "rgba(0, 255, 65, 0.12)";
-    ctx.fillStyle = "rgba(0, 255, 65, 0.35)";
+    ctx.strokeStyle = "rgba(220, 227, 234, 0.07)";
+    ctx.fillStyle = "rgba(151, 161, 173, 0.45)";
     ctx.lineWidth = 1;
-    ctx.font = `${11 * (window.devicePixelRatio || 1)}px "Courier New", monospace`;
+    ctx.font = `${10.5 * (window.devicePixelRatio || 1)}px Consolas, Menlo, monospace`;
     for (let r = 5; r <= RANGE_NM; r += 5) {
       ctx.beginPath();
       ctx.arc(px(0), py(0), r * scale, 0, Math.PI * 2);
@@ -249,9 +249,9 @@ const Radar = (() => {
       ? ctx.createConicGradient(sweepAngle, px(0), py(0))
       : null;
     if (grad) {
-      grad.addColorStop(0, "rgba(0,255,65,0.10)");
-      grad.addColorStop(0.08, "rgba(0,255,65,0)");
-      grad.addColorStop(1, "rgba(0,255,65,0)");
+      grad.addColorStop(0, "rgba(140, 165, 195, 0.06)");
+      grad.addColorStop(0.08, "rgba(140, 165, 195, 0)");
+      grad.addColorStop(1, "rgba(140, 165, 195, 0)");
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(px(0), py(0), RANGE_NM * scale, 0, Math.PI * 2);
@@ -259,7 +259,7 @@ const Radar = (() => {
     }
 
     // extended centrelines (dashes toward the arrival side)
-    ctx.strokeStyle = "rgba(0, 170, 255, 0.25)";
+    ctx.strokeStyle = "rgba(76, 144, 240, 0.25)";
     ctx.setLineDash([6, 10]);
     const back = headingVector((flow.arrHeading + 180) % 360);
     for (const key of ["north", "south"]) {
@@ -274,7 +274,7 @@ const Radar = (() => {
     ctx.setLineDash([]);
 
     // runways
-    ctx.strokeStyle = "#9fb4c7";
+    ctx.strokeStyle = "#7d8895";
     ctx.lineWidth = 3 * (window.devicePixelRatio || 1);
     for (const key of ["north", "south"]) {
       const r = RUNWAYS[key];
@@ -284,17 +284,17 @@ const Radar = (() => {
       ctx.stroke();
     }
     ctx.lineWidth = 1;
-    ctx.fillStyle = "rgba(159,180,199,0.7)";
+    ctx.fillStyle = "rgba(151, 161, 173, 0.7)";
     ctx.fillText("CYVR", px(0.4), py(-1.0));
 
     // aircraft
     const dpr = window.devicePixelRatio || 1;
     for (const ac of aircraft) {
       const X = px(ac.x), Y = py(ac.y);
-      const color = ac.player ? "#39d5ff" : "#00ff41";
+      const color = ac.player ? "#6aa5f5" : "#9aa8b6";
 
       // history trail
-      ctx.fillStyle = ac.player ? "rgba(57,213,255,0.35)" : "rgba(0,255,65,0.28)";
+      ctx.fillStyle = ac.player ? "rgba(106, 165, 245, 0.35)" : "rgba(154, 168, 182, 0.25)";
       for (const p of ac.history) {
         ctx.fillRect(px(p.x) - 1.5 * dpr, py(p.y) - 1.5 * dpr, 3 * dpr, 3 * dpr);
       }
@@ -317,7 +317,7 @@ const Radar = (() => {
 
       // data block
       ctx.fillStyle = color;
-      ctx.font = `${10.5 * dpr}px "Courier New", monospace`;
+      ctx.font = `${10.5 * dpr}px Consolas, Menlo, monospace`;
       const altTxt = String(Math.max(0, Math.round(ac.alt / 100))).padStart(3, "0");
       const gsTxt = String(Math.round(ac.gs / 10)).padStart(2, "0");
       ctx.fillText(ac.callsign, X + 8 * dpr, Y - 10 * dpr);
