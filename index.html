@@ -3,104 +3,139 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>YVR ATC Phrase Trainer</title>
+    <title>CYVR ATC SIM — Live Radio Simulation</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="app">
-      <header class="hero">
-        <div class="hero__content">
-          <div class="badge">CYVR • VANCOUVER CONTROL</div>
-          <h1>ATC SIMULATION</h1>
-          <p>Live ATC simulation. Listen to clearances. Respond with proper readbacks. Improve your phraseology.</p>
-          <div class="hero__actions">
-            <button class="btn btn--primary" id="session-start">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M5 3l14 9-14 9V3z"/>
-              </svg>
-              START SIMULATION
-            </button>
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-badge">CYVR</span>
+          <div>
+            <h1>ATC SIM</h1>
+            <p class="brand-sub">VANCOUVER TERMINAL &middot; RADIO SIMULATION</p>
           </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><span class="stat-label">SCORE</span><span class="stat-value" id="stat-score">0</span></div>
+          <div class="stat"><span class="stat-label">STREAK</span><span class="stat-value" id="stat-streak">0</span></div>
+          <div class="stat"><span class="stat-label">XP</span><span class="stat-value" id="stat-xp">0</span></div>
+          <div class="stat stat-rank"><span class="stat-label">RANK</span><span class="stat-value" id="stat-rank">STUDENT PILOT</span></div>
+        </div>
+
+        <div class="settings">
+          <label>DIFFICULTY
+            <select id="set-difficulty">
+              <option value="rookie">ROOKIE — text shown</option>
+              <option value="fo">FIRST OFFICER — listen only</option>
+              <option value="captain">CAPTAIN — fast, no retry</option>
+            </select>
+          </label>
+          <label>FLIGHT
+            <select id="set-scenario">
+              <option value="random">RANDOM</option>
+              <option value="departure">DEPARTURE</option>
+              <option value="arrival">ARRIVAL</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="set-ambient" checked /> CHATTER</label>
+          <label class="check"><input type="checkbox" id="set-radiofx" checked /> RADIO FX</label>
         </div>
       </header>
 
-      <main class="main">
-        <section class="trainer">
-          <div class="trainer__content">
-            <section class="card card--active" id="session">
-              <div class="card__header">
-                <div>
-                  <p class="label">LIVE ATC SIMULATION</p>
-                  <h2 id="session-atc">Ready to begin. Press Start Simulation.</h2>
-                </div>
-              </div>
-              <div class="session__grid">
-                <div class="session__panel">
-                  <h3>CLEARANCE TRANSMISSION</h3>
-                  <p class="muted">Listen carefully. Respond with your readback.</p>
-                  
-                  <div class="mic-indicator">
-                    <div class="mic-dot"></div>
-                    <span id="mic-status" class="mic-status">Ready</span>
-                  </div>
-                  
-                  <textarea
-                    id="session-text"
-                    placeholder="Your readback will appear here (spoken or typed)..."
-                    class="transcript-area"
-                  ></textarea>
-                  
-                  <div class="session__actions">
-                    <button class="btn btn--mic" id="session-mic" title="Hold to speak. Release to submit.">
-                      <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2m7 11v4m-4 0h8"/>
-                      </svg>
-                      Mic Ready
-                    </button>
-                    <button class="btn btn--secondary" id="session-check">
-                      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                      </svg>
-                      Submit
-                    </button>
-                    <button class="btn btn--ghost" id="session-clear">
-                      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M3 6h18M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m3 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6h12z"/>
-                      </svg>
-                      Clear
-                    </button>
-                  </div>
-                  
-                  <div class="result" id="session-result"></div>
-                </div>
-                
-                <div class="session__panel">
-                  <h3>TRANSMISSION LOG</h3>
-                  <ul class="session__timeline" id="session-timeline"></ul>
-                </div>
-              </div>
-              
-              <div class="session__score">
-                <div class="score-item">
-                  <span class="score-label">SCORE</span>
-                  <span class="score-value" id="session-score">0</span>
-                </div>
-                <div class="score-item">
-                  <span class="score-label">STREAK</span>
-                  <span class="score-value" id="session-streak">0</span>
-                </div>
-              </div>
-            </section>
+      <main class="sim-grid">
+        <section class="panel radar-panel">
+          <div class="radar-wrap">
+            <canvas id="radar"></canvas>
+            <div class="radar-overlay">
+              <span id="ovr-time">0000Z</span>
+              <span id="ovr-flow">EAST FLOW</span>
+              <span id="ovr-wind">---° / --KT</span>
+              <span id="ovr-atis">INFO -</span>
+            </div>
           </div>
         </section>
+
+        <section class="panel comms-panel">
+          <div class="freq-display">
+            <div>
+              <p class="label" id="phase-label">STANDBY</p>
+              <h2 id="freq-name">VANCOUVER TERMINAL</h2>
+            </div>
+            <div class="freq-mhz" id="freq-mhz">---.--</div>
+          </div>
+
+          <div class="atc-display" id="atc-display">Start a flight to pick up your clearance.</div>
+
+          <div class="feedback" id="feedback"></div>
+
+          <div class="mic-row">
+            <button class="btn btn-ptt" id="ptt" title="Hold to transmit (or hold SPACE). Release to send.">
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V23h2v-2.06A9 9 0 0 0 21 12v-2h-2z"/></svg>
+              Hold to transmit
+            </button>
+            <span class="mic-status" id="mic-status">STANDBY</span>
+          </div>
+
+          <textarea id="readback" class="readback-area" placeholder="Your readback appears here — speak with push-to-talk (SPACE) or type it and press ENTER…"></textarea>
+
+          <div class="comms-actions">
+            <button class="btn btn-primary" id="submit-btn">Transmit readback</button>
+            <button class="btn btn-ghost" id="repeat-btn">Say again</button>
+            <button class="btn btn-ghost" id="clear-btn">Clear</button>
+          </div>
+        </section>
+
+        <aside class="panel side-panel">
+          <div class="side-block">
+            <h3>FLIGHT STRIP</h3>
+            <div class="flight-strip" id="flight-strip">
+              <div class="strip-empty">NO ACTIVE FLIGHT</div>
+            </div>
+          </div>
+          <div class="side-block">
+            <h3>PHASE</h3>
+            <ul class="checklist" id="checklist"></ul>
+          </div>
+          <div class="side-block side-block--grow">
+            <h3>FREQUENCY LOG</h3>
+            <ul class="log" id="log"></ul>
+          </div>
+        </aside>
       </main>
 
       <footer class="footer">
-        <p>Training simulation only. Not for real-world ATC or flight operations.</p>
+        <p>Training simulation only — not for real-world ATC or flight operations. Phraseology simplified from Canadian AIM.</p>
       </footer>
     </div>
 
-    <script src="./app.js"></script>
+    <div class="overlay visible" id="start-overlay">
+      <div class="overlay-card">
+        <div class="brand-badge big">CYVR</div>
+        <h2>Vancouver ATC Simulation</h2>
+        <p>Fly a full departure or arrival at Vancouver International — clearance delivery, ground, tower and terminal control, live on frequency. Listen to each transmission, key the mic, and read it back like a pro.</p>
+        <ul class="overlay-hints">
+          <li><strong>HOLD SPACE</strong> (or the mic button) to transmit — release to send</li>
+          <li><strong>TYPE + ENTER</strong> works if you have no microphone</li>
+          <li>Readbacks are graded on the items that matter: runways, altitudes, headings, frequencies, squawks</li>
+          <li>Watch the radar — your aircraft actually flies what you read back</li>
+        </ul>
+        <button class="btn btn-primary btn-big" id="start-btn">Start flight</button>
+      </div>
+    </div>
+
+    <div class="overlay" id="summary-overlay">
+      <div class="overlay-card overlay-card--wide">
+        <h2>Flight debrief</h2>
+        <div id="summary-body"></div>
+        <button class="btn btn-primary btn-big" id="summary-new">New flight</button>
+      </div>
+    </div>
+
+    <script src="./js/data.js"></script>
+    <script src="./js/radio.js"></script>
+    <script src="./js/radar.js"></script>
+    <script src="./js/app.js"></script>
   </body>
 </html>
